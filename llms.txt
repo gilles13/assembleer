@@ -1,0 +1,78 @@
+# assembleer
+
+![Logo assembleer](reference/figures/logo_hexa.png)
+
+Accéder aux données ouvertes de l’Assemblée nationale depuis R, avec un
+stockage local DuckDB.
+
+## Installation
+
+``` r
+
+install.packages("remotes")
+remotes::install_github("gilles13/assembleer")
+```
+
+## Démarrer
+
+``` r
+
+assembleer::actualiser()  # télécharge ou vérifie les sources officielles
+assembleer::chercher_scrutins("finance", limite = 10)
+assembleer::bilan_votes(par = "groupe")
+```
+
+Les lectures sont locales : elles ne déclenchent pas de téléchargement.
+
+# Package index
+
+## All functions
+
+- [`acteurs()`](https://gilles13.github.io/assembleer/reference/acteurs.md)
+  : Acteurs parlementaires
+- [`actualiser()`](https://gilles13.github.io/assembleer/reference/actualiser.md)
+  : Actualiser explicitement la base locale
+- [`bilan_hebdomadaire()`](https://gilles13.github.io/assembleer/reference/bilan_hebdomadaire.md)
+  : Bilan hebdomadaire des scrutins publics
+- [`bilan_votes()`](https://gilles13.github.io/assembleer/reference/bilan_votes.md)
+  : Bilan des votes par groupe ou par depute
+- [`chercher_amendements()`](https://gilles13.github.io/assembleer/reference/chercher_amendements.md)
+  : Rechercher dans les amendements de la base locale
+- [`chercher_scrutins()`](https://gilles13.github.io/assembleer/reference/chercher_scrutins.md)
+  : Rechercher des scrutins
+- [`deputes()`](https://gilles13.github.io/assembleer/reference/deputes.md)
+  : Deputes en exercice, depuis la base locale
+- [`entete()`](https://gilles13.github.io/assembleer/reference/entete.md)
+  : En-tete commun des documents assembleer
+- [`fiche_composition()`](https://gilles13.github.io/assembleer/reference/fiche_composition.md)
+  : Fiche PDF de composition de l'Assemblee
+- [`fiche_deputes_groupes()`](https://gilles13.github.io/assembleer/reference/fiche_deputes_groupes.md)
+  : Liste PDF detaillee des deputes par groupe parlementaire
+- [`fiche_motion_censure()`](https://gilles13.github.io/assembleer/reference/fiche_motion_censure.md)
+  : Fiche PDF d'une motion de censure
+- [`groupes()`](https://gilles13.github.io/assembleer/reference/groupes.md)
+  : Groupes politiques
+- [`lire_table()`](https://gilles13.github.io/assembleer/reference/lire_table.md)
+  : Lire une table locale DuckDB
+- [`organes()`](https://gilles13.github.io/assembleer/reference/organes.md)
+  : Organes parlementaires
+- [`produire_bilan()`](https://gilles13.github.io/assembleer/reference/produire_bilan.md)
+  : Produire un bilan hebdomadaire PDF
+- [`produire_cheatsheet()`](https://gilles13.github.io/assembleer/reference/produire_cheatsheet.md)
+  : Produire la cheatsheet HTML
+- [`requete()`](https://gilles13.github.io/assembleer/reference/requete.md)
+  : Executer une requete SQL sur les donnees locales
+- [`scrutins()`](https://gilles13.github.io/assembleer/reference/scrutins.md)
+  : Scrutins publics
+- [`votes()`](https://gilles13.github.io/assembleer/reference/votes.md)
+  : Votes individuels
+- [`votes_scrutin()`](https://gilles13.github.io/assembleer/reference/votes_scrutin.md)
+  : Votes nominatifs d'un scrutin
+
+# Articles
+
+### Guide
+
+- [Cheatsheet](https://gilles13.github.io/assembleer/articles/cheatsheet.md):
+- [À
+  propos](https://gilles13.github.io/assembleer/articles/a-propos.md):

@@ -1,0 +1,10 @@
+pandoc: 3.8.3
+pkgdown: 2.2.1
+pkgdown_sha: ~
+articles:
+  a-propos: a-propos.html
+  cheatsheet: cheatsheet.html
+last_built: 2026-11-07T13:28Z
+urls:
+  reference: https://gilles13.github.io/assembleer/reference
+  article: https://gilles13.github.io/assembleer/articles
