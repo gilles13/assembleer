@@ -1,0 +1,24 @@
+# R and RStudio
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+.Renviron
+
+# R package build and checks
+.Rcheck/
+*.Rcheck/
+*.tar.gz
+*.Rproj.user
+
+# Generated documentation and website
+/docs/
+/inst/doc/
+/vignettes/*.html
+/vignettes/*.pdf
+
+# Temporary files
+*~
+*.swp
+*.swo
+.DS_Store
