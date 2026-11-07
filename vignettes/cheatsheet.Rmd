@@ -1,0 +1,77 @@
+---
+title: "Cheatsheet"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Cheatsheet}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+
+<style>
+/* Page de cheatsheet pleine largeur, sans habillage pkgdown. */
+body:has(.assembleer-fiche) > nav.navbar,
+body:has(.assembleer-fiche) .template-article > footer,
+body:has(.assembleer-fiche) #main > .page-header,
+body:has(.assembleer-fiche) .template-article aside {display:none !important}
+body:has(.assembleer-fiche) .container.template-article {max-width:none;width:100%;padding:0;margin:0}
+body:has(.assembleer-fiche) .template-article > .row {display:block;margin:0}
+body:has(.assembleer-fiche) #main {display:block;width:100%;max-width:none;flex:none;padding:0;margin:0}
+body:has(.assembleer-fiche) {padding:0;background:#e9edf0}
+.assembleer-fiche {box-sizing:border-box;width:min(281mm,calc(100% - 32px));min-height:194mm;margin:16px auto;padding:8mm 9mm;background:#fff;box-shadow:0 3px 20px #0002;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.assembleer-fiche .entete {display:grid;grid-template-columns:14mm 1fr 14mm;align-items:center;border-bottom:2px solid #2F6B9A;padding-bottom:2mm;margin-bottom:4mm;min-height:15mm}
+.assembleer-fiche .titre {text-align:center}
+.assembleer-fiche .titre h1 {font-size:18pt;line-height:1;margin:0;color:#18344E}
+.assembleer-fiche .titre p {font-size:9pt;margin:2mm 0 0;color:#59636E;font-weight:600}
+.assembleer-fiche .logo-hexa {display:block;max-width:12mm;max-height:12mm;object-fit:contain;justify-self:end}
+@media print {body:has(.assembleer-fiche){background:white}.assembleer-fiche{width:100%;margin:0;box-shadow:none}.assembleer-fiche .bloc{break-inside:avoid}}
+
+.assembleer-fiche .colonnes {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;align-items:start}
+.assembleer-fiche .colonne {display:flex;flex-direction:column;gap:.65rem;min-width:0}
+.assembleer-fiche .partie {margin:0;padding:.65rem;color:white;font-size:1.1rem;text-align:center;border-radius:8px}
+.assembleer-fiche .decouvrir>.partie {background:#2676A8}
+.assembleer-fiche .comprendre>.partie {background:#B77A20}
+.assembleer-fiche .exercer>.partie {background:#25856C}
+.assembleer-fiche .bloc {border:1px solid #d9e0e5;border-radius:9px;padding:.8rem;background:white;min-width:0}
+.assembleer-fiche .bloc h2 {font-size:1rem;margin:0 0 .4rem;color:#18344E}
+.assembleer-fiche .bloc p {font-size:.85rem;margin:0 0 .6rem;color:#52606b}
+.assembleer-fiche pre {margin:0;padding:.6rem;background:#f3f6f8;white-space:pre-wrap;overflow-wrap:anywhere;border-radius:5px}
+.assembleer-fiche code {font-size:.75rem;color:#17324a}
+@media(max-width:900px){.assembleer-fiche .colonnes{grid-template-columns:1fr}}
+</style>
+
+<div class="assembleer-fiche">
+<header class="entete"><span aria-hidden="true"></span><div class="titre"><h1>assembleer · Cheatsheet</h1><p>Les données de l’Assemblée nationale avec R</p></div><img class="logo-hexa" src="../reference/figures/logo_hexa.png" alt="Logo assembleer"></header>
+<div class="colonnes">
+<div class="colonne decouvrir"><h2 class="partie">Actualiser</h2>
+<section class="bloc"><h2>Démarrer</h2><p>Charger assembleer et afficher cette fiche.</p><pre><code>library(assembleer)
+produire_cheatsheet()</code></pre></section>
+<section class="bloc"><h2>Mettre à jour</h2><p>Télécharger les données officielles.</p><pre><code>actualiser(sources = c(&quot;deputes&quot;, &quot;amo40&quot;,
+                      &quot;scrutins&quot;, &quot;dossiers&quot;))</code></pre></section>
+<section class="bloc"><h2>Actualisation forcée</h2><p>Recharger une source particulière.</p><pre><code>actualiser(sources = &quot;scrutins&quot;, forcer = TRUE)</code></pre></section>
+<section class="bloc"><h2>Lire les données</h2><p>Explorer le cache local et interroger en SQL.</p><pre><code>lire_table(&quot;scrutins&quot;)
+requete(&quot;SELECT * FROM scrutins LIMIT 10&quot;)</code></pre></section>
+</div>
+<div class="colonne comprendre"><h2 class="partie">Explorer</h2>
+<section class="bloc"><h2>Acteurs et groupes</h2><p>Consulter les personnes et les organes.</p><pre><code>deputes()
+groupes()
+acteurs()
+organes()</code></pre></section>
+<section class="bloc"><h2>Scrutins et votes</h2><p>Explorer les scrutins et les votes.</p><pre><code>scrutins()
+votes()</code></pre></section>
+<section class="bloc"><h2>Rechercher</h2><p>Trouver un scrutin et consulter ses votes.</p><pre><code>chercher_scrutins(&quot;finance&quot;, limite = 10)
+s = chercher_scrutins(&quot;finance&quot;, limite = 1)
+if (nrow(s)) votes_scrutin(s$uid[[1]])</code></pre></section>
+<section class="bloc"><h2>Amendements</h2><p>Rechercher des amendements.</p><pre><code>chercher_amendements(&quot;finance&quot;)</code></pre></section>
+</div>
+<div class="colonne exercer"><h2 class="partie">Analyser</h2>
+<section class="bloc"><h2>Bilan des votes</h2><p>Comparer les résultats par groupe ou député.</p><pre><code>bilan_votes(par = &quot;groupe&quot;)
+bilan_votes(par = &quot;depute&quot;)</code></pre></section>
+<section class="bloc"><h2>Bilan hebdomadaire</h2><p>Synthétiser une semaine de travaux.</p><pre><code>bilan_hebdomadaire(as.Date(&quot;2026-10-26&quot;))</code></pre></section>
+<section class="bloc"><h2>Produire un PDF</h2><p>Créer un document de synthèse.</p><pre><code>produire_bilan(as.Date(&quot;2026-10-26&quot;))</code></pre></section>
+<section class="bloc"><h2>Fiches</h2><p>Produire des fiches de composition.</p><pre><code>fiche_composition()
+fiche_deputes_groupes()</code></pre></section>
+</div>
+</div>
+</div>

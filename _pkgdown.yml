@@ -1,0 +1,22 @@
+url: https://gilles13.github.io/assembleer/
+template:
+  bootstrap: 5
+navbar:
+  structure:
+    left: [cheatsheet, reference, articles]
+    right: [github]
+  components:
+    cheatsheet:
+      text: Cheatsheet
+      href: cheatsheet.html
+      target: _blank
+    articles:
+      text: Guide
+      menu:
+      - text: À propos
+        href: articles/a-propos.html
+articles:
+- title: Guide
+  contents:
+  - cheatsheet
+  - a-propos
