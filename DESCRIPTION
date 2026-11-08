@@ -1,13 +1,13 @@
 Package: assembleer
 Title: Donnees ouvertes de l'Assemblee nationale
-Version: 0.2.0
+Version: 0.3.0
 Authors@R: person("Gilles", "FIDANI", role = c("aut", "cre"), email = "gillesfidani@gmail.com")
 Description: Telecharge et met en cache des fichiers de donnees ouvertes
     publies par l'Assemblee nationale francaise.
 License: GPL-3
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
-Imports: jsonlite, DBI, duckdb, httr2, zip, png, rmarkdown, knitr
-Suggests: pkgdown
+Imports: jsonlite, DBI, duckdb, httr2, zip, png, rmarkdown, xml2
+Suggests: pkgdown, knitr
 VignetteBuilder: knitr
 Config/roxygen2/version: 8.1.0

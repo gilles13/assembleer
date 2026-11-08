@@ -1,5 +1,5 @@
 # URL officielles, conservees dans le package.
-.sources_an = function() c(deputes = .url_deputes, amo40 = .archives[["amo40"]], amendements = .archives[["amendements"]], scrutins = .archives[["scrutins"]], dossiers = .archives[["dossiers"]])
+.sources_an = function() c(deputes = .url_deputes, amo20 = .archives[["amo20"]], amo40 = .archives[["amo40"]], amendements = .archives[["amendements"]], scrutins = .archives[["scrutins"]], dossiers = .archives[["dossiers"]], reunions = .archives[["reunions"]], senateur = "https://data.senat.fr/data/senateurs/export_sens.zip", questions_ecrites = .archives[["questions_ecrites"]])
 
 # Pour les archives volumineuses, conserver les octets deja recus et afficher
 # la progression. curl -C - reprend au dernier octet si le serveur l'autorise.
@@ -47,6 +47,72 @@
                 md5 = unname(tools::md5sum(chemin)), chemin = chemin,
                 verification = "archive locale", telecharge = FALSE,
                 octets = 0))
+  }
+  if (source == "senateur") {
+    archive = file.path(dossier, "export_sens.zip")
+    if (file.exists(archive) && (reimporter || !nrow(ancien)))
+      return(list(change = TRUE, etag = "", modified = "",
+                  md5 = unname(tools::md5sum(archive)), chemin = archive,
+                  verification = "archive locale", telecharge = FALSE, octets = 0))
+  }
+  if (source == "amo20") {
+    archive = file.path(dossier, "assembleer-AMO20.zip")
+    if (file.exists(archive) && (!nrow(ancien) || reimporter))
+      return(list(change = TRUE, etag = "", modified = "",
+                  md5 = unname(tools::md5sum(archive)), chemin = archive,
+                  verification = "archive locale", telecharge = FALSE, octets = 0))
+  }
+  if (source == "questions_ecrites") {
+    archive = file.path(dossier, "Questions_ecrites.json.zip")
+    if (file.exists(archive) && (reimporter || !nrow(ancien)))
+      return(list(change = TRUE, etag = "", modified = "",
+                  md5 = unname(tools::md5sum(archive)), chemin = archive,
+                  verification = "archive locale", telecharge = FALSE, octets = 0))
+    temporaire = file.path(dossier, "Questions_ecrites.json.zip.part")
+    code = system2("curl", c("--http1.1", "-fL", "--retry", "5",
+                             "--retry-all-errors", "--retry-delay", "2",
+                             "--continue-at", "-", "-o", shQuote(temporaire),
+                             shQuote(url)))
+    if (code != 0L)
+      stop("Telechargement interrompu (curl : ", code,
+           "). Fichier partiel conserve : ", temporaire)
+    contenu = utils::unzip(temporaire, list = TRUE)$Name
+    if (!any(grepl("^json/[^/]+\\.json$", contenu)))
+      stop("Archive des questions ecrites invalide.")
+    md5 = unname(tools::md5sum(temporaire))
+    if (!reimporter && nrow(ancien) && identical(md5, ancien$md5[[1L]]))
+      return(list(change = FALSE, etag = "", modified = "", md5 = md5,
+                  chemin = NULL, verification = "GET MD5", telecharge = TRUE,
+                  octets = file.info(temporaire)$size))
+    destination = tempfile(tmpdir = dossier, fileext = ".zip")
+    if (!file.rename(temporaire, destination)) stop("Impossible de conserver le ZIP temporaire.")
+    return(list(change = TRUE, etag = "", modified = "", md5 = md5,
+                chemin = destination, verification = "GET MD5", telecharge = TRUE,
+                octets = file.info(destination)$size))
+  }
+  if (source == "reunions") {
+    archive = file.path(dossier, "Agenda.json.zip")
+    if (file.exists(archive) && (reimporter || !nrow(ancien))) {
+      return(list(change = TRUE, etag = "", modified = "",
+                  md5 = unname(tools::md5sum(archive)), chemin = archive,
+                  verification = "archive locale", telecharge = FALSE, octets = 0))
+    }
+    temporaire = tempfile(tmpdir = dossier, fileext = ".zip")
+    on.exit(if (file.exists(temporaire)) unlink(temporaire), add = TRUE)
+    code = system2("curl", c("-fL", "--retry", "3", "-o", shQuote(temporaire), shQuote(url)))
+    if (!identical(as.integer(code), 0L)) stop("Echec du telechargement de l'agenda (curl).")
+    contenu = utils::unzip(temporaire, list = TRUE)$Name
+    if (!any(grepl("^json/reunion/[^/]+\\.json$", contenu))) stop("Archive Agenda invalide.")
+    md5 = unname(tools::md5sum(temporaire))
+    if (!reimporter && nrow(ancien) && identical(md5, ancien$md5[[1L]]))
+      return(list(change = FALSE, etag = "", modified = "", md5 = md5,
+                  chemin = NULL, verification = "GET MD5", telecharge = TRUE,
+                  octets = file.info(temporaire)$size))
+    destination = tempfile(tmpdir = dossier, fileext = ".zip")
+    if (!file.rename(temporaire, destination)) stop("Impossible de conserver le ZIP temporaire.")
+    return(list(change = TRUE, etag = "", modified = "", md5 = md5,
+                chemin = destination, verification = "GET MD5", telecharge = TRUE,
+                octets = file.info(destination)$size))
   }
   requete = httr2::request(url) |> httr2::req_user_agent("assembleer/0.2") |>
     httr2::req_timeout(1800) |> httr2::req_retry(max_tries = 3)
@@ -100,7 +166,7 @@
   if (httr2::resp_status(reponse) != 304L && source != "deputes") {
     valide = tryCatch({
       contenu = utils::unzip(temporaire, list = TRUE)
-      nrow(contenu) > 0L && any(grepl("\\.json$", contenu$Name, ignore.case = TRUE))
+      nrow(contenu) > 0L && any(grepl(if (source == "senateur") "(^|/)export_sens\\.sql$" else "\\.json$", contenu$Name, ignore.case = TRUE))
     }, error = function(e) FALSE)
     if (!isTRUE(valide)) {
       unlink(temporaire)
@@ -184,7 +250,7 @@
 #' @return Tableau de suivi : verification, telechargement, changement, fichiers
 #'   traites, lignes importees et volume telecharge (octets).
 #' @export
-actualiser = function(sources = c("deputes", "amo40", "scrutins", "dossiers", "amendements"), jours = 1,
+actualiser = function(sources = c("deputes", "amo40", "amo20", "scrutins", "dossiers", "amendements", "reunions"), jours = 1,
                        forcer = FALSE, reimporter = FALSE, cache = tools::R_user_dir("assembleer", "cache"),
                        verbose = TRUE) {
   sources = match.arg(sources, names(.sources_an()), several.ok = TRUE)
@@ -242,7 +308,131 @@ actualiser = function(sources = c("deputes", "amo40", "scrutins", "dossiers", "a
       DBI::dbBegin(con)
       ok = FALSE
       tryCatch({
-        if (source == "amendements") {
+        if (source == "senateur") {
+          compte = .importer_senateur(con, controle$chemin, journal)
+          fichiers_traites = compte$tables
+          lignes_importees = compte$lignes
+        } else if (source == "questions_ecrites") {
+          inventaire = utils::unzip(controle$chemin, list = TRUE)$Name
+          noms = inventaire[grepl("^json/[^/]+\\.json$", inventaire)]
+          if (!length(noms) || anyDuplicated(noms))
+            stop("Archive des questions ecrites inattendue.")
+          journal(source, "Extraction de ", length(noms), " fichiers JSON")
+          dossier = tempfile("assembleer-questions-")
+          dir.create(dossier)
+          tryCatch({
+            utils::unzip(controle$chemin, files = noms, exdir = dossier)
+            journal(source, "Importation DuckDB en une requete")
+            chemin = gsub("'", "''", file.path(dossier, "json", "*.json"), fixed = TRUE)
+            DBI::dbExecute(con, "DELETE FROM questions_ecrites")
+            DBI::dbExecute(con, paste0(
+              "INSERT INTO questions_ecrites ",
+              "SELECT question->>'uid', question ",
+              "FROM read_json('", chemin, "', columns = {question: 'JSON'})"))
+            lignes_importees = DBI::dbGetQuery(con,
+              "SELECT COUNT(*) AS n FROM questions_ecrites")$n[[1L]]
+            fichiers_traites = length(noms)
+            if (lignes_importees != fichiers_traites)
+              stop("Nombre de questions different du nombre de fichiers JSON.")
+            journal(source, "Verification : ", lignes_importees, " questions importees")
+          }, finally = unlink(dossier, recursive = TRUE))
+        } else if (source == "amo20") {
+          inventaire = utils::unzip(controle$chemin, list = TRUE)$Name
+          noms = inventaire[grepl("^json/(acteur|organe)/[^/]+\\.json$", inventaire)]
+          if (!length(noms) || anyDuplicated(noms)) stop("Archive AMO20 inattendue.")
+          DBI::dbExecute(con, "DELETE FROM mandats_organes")
+          DBI::dbExecute(con, "DELETE FROM mandats")
+          # AMO20 contient aussi des acteurs historiques absents d'AMO40.
+          # L'import conserve les identites et organes existants, puis les complete.
+          valeur = function(x) {
+            y = unlist(x, use.names = FALSE)
+            if (!length(y)) NA_character_ else as.character(y[[1L]])
+          }
+          dossier = tempfile("assembleer-amo20-")
+          dir.create(dossier)
+          tryCatch({
+            for (lot in split(noms, ceiling(seq_along(noms) / 200L))) {
+              utils::unzip(controle$chemin, files = lot, exdir = dossier)
+              for (nom in lot) {
+                x = jsonlite::fromJSON(file.path(dossier, nom), simplifyVector = FALSE)
+                if (!is.null(x$organe)) {
+                  o = x$organe
+                  DBI::dbExecute(con, "INSERT INTO organes VALUES (?, ?, ?, ?, ?) ON CONFLICT (uid) DO UPDATE SET code_type = excluded.code_type, libelle = excluded.libelle, libelle_abrege = excluded.libelle_abrege, couleur = excluded.couleur",
+                    params = list(valeur(o$uid), valeur(o$codeType), valeur(o$libelle), valeur(o$libelleAbrege), valeur(o$couleurAssociee)))
+                }
+                if (!is.null(x$acteur)) {
+                  a = x$acteur
+                  DBI::dbExecute(con, "INSERT INTO acteurs VALUES (?, ?, ?) ON CONFLICT (uid) DO UPDATE SET nom = excluded.nom, prenom = excluded.prenom",
+                    params = list(valeur(a$uid), valeur(a$etatCivil$ident$nom), valeur(a$etatCivil$ident$prenom)) )
+                  mandats = a$mandats$mandat
+                  if (!is.null(mandats$uid)) mandats = list(mandats)
+                  for (m in mandats) {
+                    if (is.null(m$uid)) next
+                    DBI::dbExecute(con, "INSERT INTO mandats VALUES (?, ?, ?, ?, CAST(? AS DATE), CAST(? AS DATE))",
+                      params = list(valeur(m$uid), valeur(m$acteurRef), valeur(m$typeOrgane),
+                                    valeur(m$infosQualite$libQualite), valeur(m$dateDebut), valeur(m$dateFin)))
+                    refs = unique(as.character(unlist(m$organes$organeRef, use.names = FALSE)))
+                    for (ref in refs) if (!is.na(ref) && nzchar(ref))
+                      DBI::dbExecute(con, "INSERT INTO mandats_organes VALUES (?, ?) ON CONFLICT DO NOTHING",
+                        params = list(valeur(m$uid), ref))
+                    lignes_importees = lignes_importees + 1L
+                  }
+                }
+                fichiers_traites = fichiers_traites + 1L
+              }
+              unlink(file.path(dossier, lot))
+              journal(source, "Importation : ", fichiers_traites, "/", length(noms), " JSON")
+            }
+          }, finally = unlink(dossier, recursive = TRUE))
+        } else if (source == "reunions") {
+          inventaire = utils::unzip(controle$chemin, list = TRUE)$Name
+          noms = inventaire[grepl("^json/reunion/[^/]+\\.json$", inventaire)]
+          if (!length(noms) || anyDuplicated(noms)) stop("Archive Agenda inattendue.")
+          total = length(noms)
+          debut_import = proc.time()[["elapsed"]]
+          journal(source, total, " fichiers JSON a traiter ; lots de 200 maximum")
+          DBI::dbExecute(con, "DELETE FROM reunions_points_odj")
+          DBI::dbExecute(con, "DELETE FROM reunions")
+          for (lot in split(noms, ceiling(seq_along(noms) / 200L))) {
+            lignes = lapply(lot, function(nom) {
+              r = jsonlite::fromJSON(unz(controle$chemin, nom), simplifyVector = FALSE)$reunion
+              if (is.null(r) || is.null(r$uid)) stop("Reunion invalide : ", nom)
+              uid = .valeur(r$uid)
+              points = .objets(r$ODJ$pointsODJ$pointODJ)
+              lignes_points = lapply(points, function(p) {
+                refs = unlist(p$dossiersLegislatifsRefs$dossierRef, use.names = FALSE)
+                if (!length(refs)) refs = NA_character_
+                data.frame(uid = .valeur(p$uid), reunion_ref = uid,
+                           dossier_ref = as.character(refs), objet = .valeur(p$objet),
+                           type_point = .valeur(p$typePointODJ), etat = .valeur(p$cycleDeVie$etat),
+                           procedure = .valeur(p$procedure), nature_travaux = .valeur(p$natureTravauxODJ))
+              })
+              list(reunion = data.frame(uid = uid, debut = .valeur(r$timeStampDebut),
+                         fin = .valeur(r$timeStampFin), session_ref = .valeur(r$sessionRef),
+                         organe_ref = .valeur(r$organeReuniRef),
+                         compte_rendu_ref = .valeur(r$compteRenduRef)),
+                   points = lignes_points)
+            })
+            DBI::dbAppendTable(con, "reunions", do.call(rbind, lapply(lignes, `[[`, "reunion")))
+            points = unlist(lapply(lignes, `[[`, "points"), recursive = FALSE)
+            if (length(points)) {
+              points = do.call(rbind, points)
+              # Un point peut referencer plusieurs dossiers : conserver une ligne par couple.
+              DBI::dbAppendTable(con, "reunions_points_odj", points)
+              lignes_importees = lignes_importees + nrow(points)
+            }
+            fichiers_traites = fichiers_traites + length(lot)
+            if (verbose) {
+              ecoule = proc.time()[["elapsed"]] - debut_import
+              restant = if (fichiers_traites < total && ecoule > 0)
+                ecoule * (total - fichiers_traites) / fichiers_traites else 0
+              journal(source, sprintf(
+                "Progression : %d/%d (%.1f %%) ; ecoule : %.0f s ; restant estime : %.0f s",
+                fichiers_traites, total, 100 * fichiers_traites / total, ecoule, restant))
+            }
+          }
+        } else if (source == "amendements") {
+
           # Import en lots : aucune requete SQL avec 144 000 parametres,
           # aucun split() geant et aucune copie des JSON dans une liste R.
           inventaire = zip::zip_list(controle$chemin)
@@ -486,14 +676,20 @@ actualiser = function(sources = c("deputes", "amo40", "scrutins", "dossiers", "a
     DBI::dbAppendTable(con, "sources", data.frame(source = source, url = unname(.sources_an()[[source]]),
         etag = controle$etag, modified = controle$modified, controle = Sys.time(), md5 = controle$md5))
     if (!is.null(controle$chemin)) {
-      if (source %in% c("dossiers", "amendements") && controle$change) {
-        destination = file.path(cache, if (source == "dossiers") "Dossiers_Legislatifs.json.zip" else "Amendements.json.zip")
+      if (source %in% c("dossiers", "amendements", "reunions", "senateur", "questions_ecrites") && controle$change) {
+        destination = file.path(cache, if (source == "dossiers") "Dossiers_Legislatifs.json.zip" else if (source == "reunions") "Agenda.json.zip" else if (source == "senateur") "export_sens.zip" else if (source == "questions_ecrites") "Questions_ecrites.json.zip" else "Amendements.json.zip")
         if (!identical(normalizePath(controle$chemin), normalizePath(destination, mustWork = FALSE)) &&
             !file.copy(controle$chemin, destination, overwrite = TRUE))
           warning("Impossible de conserver l'archive dans le cache.")
       }
       if (!identical(normalizePath(controle$chemin),
-                     normalizePath(file.path(cache, "Amendements.json.zip"), mustWork = FALSE)))
+                     normalizePath(file.path(cache, "Amendements.json.zip"), mustWork = FALSE)) &&
+          !identical(normalizePath(controle$chemin),
+                     normalizePath(file.path(cache, "assembleer-AMO20.zip"), mustWork = FALSE)) &&
+          !identical(normalizePath(controle$chemin),
+                     normalizePath(file.path(cache, "export_sens.zip"), mustWork = FALSE)) &&
+          !identical(normalizePath(controle$chemin),
+                     normalizePath(file.path(cache, "Questions_ecrites.json.zip"), mustWork = FALSE)))
         unlink(controle$chemin)
     }
     statut = if (!controle$change) "inchange" else if (!fichiers_traites)
@@ -551,8 +747,9 @@ actualiser = function(sources = c("deputes", "amo40", "scrutins", "dossiers", "a
                      groupe_ref = uid, total_groupe = n)
         })
         res = do.call(rbind, res)
-        # PO0 ne permet pas d'identifier une formation politique.
-        if (any(res$groupe_ref == "PO0")) {
+        # PO0 n'identifie aucun groupe exploitable : conserver les autres effectifs.
+        res = res[res$groupe_ref != "PO0", , drop = FALSE]
+        if (!nrow(res)) {
           ignores <<- c(ignores, .valeur(s$uid))
           return(NULL)
         }
@@ -582,7 +779,7 @@ actualiser = function(sources = c("deputes", "amo40", "scrutins", "dossiers", "a
     stop(e)
   })
   if (length(ignores))
-    warning(length(ignores), " scrutins ignores (PO0 ou effectifs contradictoires). Exemples : ",
+    warning(length(ignores), " scrutins sans effectifs exploitables (PO0 seul ou effectifs contradictoires). Exemples : ",
             paste(utils::head(unique(ignores), 5L), collapse = ", "), call. = FALSE)
   invisible(total)
 }

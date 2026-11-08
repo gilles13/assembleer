@@ -1,0 +1,23 @@
+famille;jeu;page_officielle;granularite;priorite;couverture;formats_confirmes;points_a_verifier
+Acteurs;Députés en exercice;https://data.assemblee-nationale.fr/acteurs/deputes-en-exercice;acteur / mandat / organe;1;mandats actifs;"CSV; XML";JSON et identifiants des relations à vérifier
+Acteurs;Historique des députés;https://data.assemblee-nationale.fr/acteurs;acteur / mandat / organe;1;depuis XIe (1997);"XML; JSON";historisation des appartenances
+Acteurs;Députés-sénateurs-ministres;https://data.assemblee-nationale.fr/acteurs;acteur / fonction;2;depuis XVe selon accueil;"XML; JSON";couverture exacte par archive
+Acteurs;Nominations organismes extra-parlementaires;https://data.assemblee-nationale.fr/acteurs;nomination;2;à vérifier;;ressource détaillée
+Acteurs;Liste simplifiée des mandats;https://data.assemblee-nationale.fr/acteurs;mandat GA / GE / GEVI;2;législature courante;;ressource détaillée
+Travaux;Dossiers législatifs;https://data.assemblee-nationale.fr/travaux-parlementaires/dossiers-legislatifs;dossier / étape / document;1;XVIIe et archives;"XML; JSON";liens vers textes et amendements
+Travaux;Tous les amendements;https://data.assemblee-nationale.fr/travaux-parlementaires/amendements;amendement / lecture;1;XVIIe et archives;"XML; JSON";ressources et schéma détaillés
+Travaux;Amendements par dossier;https://data.assemblee-nationale.fr/dossierLeg/liste-amendements;amendement / dossier;1;XVIIe;CSV;recoupement avec archive globale
+Travaux;Votes et scrutins publics;https://data.assemblee-nationale.fr/travaux-parlementaires/votes;scrutin / vote nominatif;1;XVIIe et archives;"XML; JSON";PO0 dans données source
+Travaux;Débats en séance publique;https://data.assemblee-nationale.fr/travaux-parlementaires;séance / orateur / intervention;1;XVIIe et archives;;format et liens à vérifier
+Travaux;Agenda séance publique;https://data.assemblee-nationale.fr/travaux-parlementaires;événement / ordre du jour;2;XVIIe et archives;;format et mise à jour
+Réunions;Réunions;https://data.assemblee-nationale.fr/reunions;réunion / ordre du jour / participant;1;depuis XVe;"XML; JSON";identifiants de lien vers dossiers et débats
+Questions;Questions au Gouvernement;https://data.assemblee-nationale.fr/questions;question / réponse;2;XVIIe et archives;"XML; JSON";ressources détaillées
+Questions;Questions orales sans débat;https://data.assemblee-nationale.fr/questions;question / réponse;2;XVIIe et archives;"XML; JSON";ressources détaillées
+Questions;Questions écrites;https://data.assemblee-nationale.fr/questions/questions-ecrites;question / réponse;2;XVIIe et archives;"XML; JSON";délai de réponse et sujets
+Autres;Budget de l’Assemblée nationale;https://data.assemblee-nationale.fr/autres;ligne budgétaire / exercice;3;à vérifier;;format et exercices
+Autres;Réserve parlementaire;https://data.assemblee-nationale.fr/autres;subvention / bénéficiaire;3;historique;;périmètre et source précise
+Autres;Consultations citoyennes;https://data.assemblee-nationale.fr/autres/consultations-citoyennes;consultation / contribution;3;ponctuelle;"XML; JSON";"plusieurs jeux indépendants; inventorier unitairement"
+Documentation;Schémas et documentation;https://data.assemblee-nationale.fr/autres/schemas;schéma de données;support;sans objet;;documentation, non jeu de données
+Archives;Archives XVIe;https://data.assemblee-nationale.fr/archives-16e;plusieurs jeux;support;XVIe;;décliner les ressources par jeu
+Archives;Archives XVe;https://data.assemblee-nationale.fr/archives-anterieures/archives-15e;plusieurs jeux;support;XVe;;décliner les ressources par jeu
+Archives;Archives XIVe;https://data.assemblee-nationale.fr/archives-anterieures;plusieurs jeux;support;XIVe;;décliner les ressources par jeu

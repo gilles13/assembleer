@@ -15,8 +15,14 @@ navbar:
       menu:
       - text: À propos
         href: articles/a-propos.html
+      - text: Comprendre le fonctionnement de l’AN
+        href: articles/fonctionnement-assemblee.html
+      - text: Comprendre les données de l’AN
+        href: articles/comprendre-donnees.html
 articles:
 - title: Guide
   contents:
+  - fonctionnement-assemblee
   - cheatsheet
   - a-propos
+  - comprendre-donnees

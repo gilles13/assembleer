@@ -141,7 +141,7 @@ fiche_deputes_groupes = function(
   }
   champs = c("identifiant", "prenom", "nom", "departement",
              "numero_de_circonscription", "profession")
-  titres = c("Identifiant", "Prénom", "Nom", "Département", "Circ.", "Profession")
+  titres = c("Identifiant", "Pr\u00e9nom", "Nom", "D\u00e9partement", "Circ.", "Profession")
   tableaux = lapply(split(seq_len(nrow(x)), factor(groupe, levels = unique(groupe))),
                     function(indices) {
     donnees = x[indices, champs, drop = FALSE]
@@ -150,26 +150,21 @@ fiche_deputes_groupes = function(
     donnees
   })
 
-  modele = system.file("modeles", "deputes_groupes.Rmd", package = "assembleer")
-  if (!nzchar(modele)) modele = file.path("inst", "modeles", "deputes_groupes.Rmd")
-  if (!file.exists(modele)) stop("Modele R Markdown introuvable.", call. = FALSE)
-  logo = system.file("assets", "logo_hexa.png", package = "assembleer")
-  if (!nzchar(logo)) logo = file.path("inst", "assets", "logo_hexa.png")
-  if (!file.exists(logo)) logo = ""
-
-  dir.create(dirname(fichier), recursive = TRUE, showWarnings = FALSE)
-  fichier = normalizePath(fichier, mustWork = FALSE)
-  message(sprintf("Députés : %d lignes, %d groupes ; compilation PDF...",
+  contenu = character()
+  for (nom in names(tableaux)) {
+    contenu = c(contenu,
+      paste0("\\section*{", .echapper_latex(nom), "}"),
+      "\\begingroup\\scriptsize",
+      knitr::kable(tableaux[[nom]], format = "latex", booktabs = TRUE,
+                   longtable = TRUE, row.names = FALSE),
+      "\\endgroup")
+  }
+  message(sprintf("D\u00E9put\u00E9s : %d lignes, %d groupes ; compilation PDF...",
                   nrow(x), length(tableaux)))
-  rendu = rmarkdown::render(
-    input = modele,
-    output_file = basename(fichier),
-    output_dir = dirname(fichier),
-    params = list(tableaux = tableaux, logo = normalizePath(logo, mustWork = FALSE),
-                  date = as.character(Sys.Date())),
-    envir = new.env(parent = baseenv()), quiet = TRUE
-  )
-  message("PDF généré : ", rendu)
+  rendu = .pdf_assembleer("D\u00E9put\u00E9s par groupe parlementaire",
+                          as.character(Sys.Date()),
+                          paste(contenu, collapse = "\n\n"), fichier)
+  message("PDF g\u00E9n\u00E9r\u00E9 : ", rendu)
   if (isTRUE(ouvrir)) {
     commande = Sys.which("xdg-open")
     if (nzchar(commande)) system2(commande, rendu, wait = FALSE)

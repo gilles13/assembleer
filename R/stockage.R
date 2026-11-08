@@ -15,8 +15,13 @@
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS fichiers (source VARCHAR, chemin VARCHAR, crc VARCHAR, taille DOUBLE, PRIMARY KEY(source, chemin))")
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS deputes (identifiant VARCHAR)")
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS acteurs (uid VARCHAR PRIMARY KEY, nom VARCHAR, prenom VARCHAR)")
+  DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS mandats (uid VARCHAR PRIMARY KEY, acteur_uid VARCHAR, type_organe VARCHAR, qualite VARCHAR, date_debut DATE, date_fin DATE)")
+  DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS mandats_organes (mandat_uid VARCHAR, organe_uid VARCHAR, PRIMARY KEY(mandat_uid, organe_uid))")
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS organes (uid VARCHAR PRIMARY KEY, code_type VARCHAR, libelle VARCHAR, libelle_abrege VARCHAR, couleur VARCHAR)")
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS amendements (uid VARCHAR PRIMARY KEY, numero VARCHAR, legislature INTEGER, titre VARCHAR, dispositif VARCHAR, expose VARCHAR, sort VARCHAR, dossier_ref VARCHAR, texte_ref VARCHAR)")
+  DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS questions_ecrites (uid VARCHAR PRIMARY KEY, document JSON)")
+  DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS reunions (uid VARCHAR PRIMARY KEY, debut VARCHAR, fin VARCHAR, session_ref VARCHAR, organe_ref VARCHAR, compte_rendu_ref VARCHAR)")
+  DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS reunions_points_odj (uid VARCHAR, reunion_ref VARCHAR, dossier_ref VARCHAR, objet VARCHAR, type_point VARCHAR, etat VARCHAR, procedure VARCHAR, nature_travaux VARCHAR)")
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS dossiers_legislatifs (uid VARCHAR, titre VARCHAR, texte_ref VARCHAR)")
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS scrutins (uid VARCHAR PRIMARY KEY, numero INTEGER, date DATE, titre VARCHAR, type_vote VARCHAR, sort VARCHAR, votants INTEGER, pour INTEGER, contre INTEGER, abstentions INTEGER)")
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS effectifs_groupes_scrutins (scrutin_uid VARCHAR, groupe_ref VARCHAR, total_groupe INTEGER, PRIMARY KEY(scrutin_uid, groupe_ref))")
@@ -29,7 +34,7 @@
 #' @param cache Repertoire de stockage local.
 #' @return Un data.frame.
 #' @export
-lire_table = function(table = c("deputes", "acteurs", "organes", "scrutins", "votes", "effectifs_groupes_scrutins", "dossiers_legislatifs", "amendements"),
+lire_table = function(table = c("deputes", "acteurs", "organes", "mandats", "mandats_organes", "scrutins", "votes", "effectifs_groupes_scrutins", "dossiers_legislatifs", "amendements", "reunions", "reunions_points_odj", "questions_ecrites"),
                       cache = tools::R_user_dir("assembleer", "cache")) {
   table = match.arg(table)
   fichier = file.path(cache, "assembleer.duckdb")

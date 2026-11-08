@@ -1,0 +1,38 @@
+---
+title: ""
+output:
+  pdf_document:
+    latex_engine: xelatex
+geometry: "a4paper,left=2.1cm,right=2.1cm,top=3.4cm,bottom=2cm,headheight=45pt,headsep=12pt"
+fontsize: 10pt
+header-includes:
+  - \usepackage{fontspec}
+  - \setmainfont{DejaVu Serif}
+  - \usepackage{graphicx}
+  - \usepackage{xcolor}
+  - \usepackage{longtable}
+  - \usepackage{booktabs}
+  - \makeatletter
+  - \def\ps@assembleer{\def\@oddhead{\vbox{\hbox to\textwidth{\begin{minipage}[c]{0.78\textwidth}\small\bfseries\assembleertitre\\\normalfont\footnotesize\assembleersoustitre\end{minipage}\hfill\assembleerlogo}\vskip 3pt\hrule}}\let\@evenhead\@oddhead\def\@oddfoot{\hfil\thepage\hfil}\let\@evenfoot\@oddfoot}
+  - \makeatother
+params:
+  titre: ""
+  sous_titre: ""
+  logo: ""
+  contenu: ""
+---
+
+```{r, echo=FALSE, results='asis'}
+# Les donnees de l'en-tete sont injectees avant le premier paragraphe.
+echapper = function(x) getFromNamespace(".echapper_latex", "assembleer")(x)
+cat("\\gdef\\assembleertitre{", echapper(params$titre), "}\n", sep = "")
+cat("\\gdef\\assembleersoustitre{", echapper(params$sous_titre), "}\n", sep = "")
+if (nzchar(params$logo)) {
+  cat("\\gdef\\assembleerlogo{\\includegraphics[height=0.78cm]{\\detokenize{",
+      params$logo, "}}}\n", sep = "")
+} else {
+  cat("\\gdef\\assembleerlogo{}\n")
+}
+cat("\\pagestyle{assembleer}\n")
+cat(params$contenu)
+```

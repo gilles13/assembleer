@@ -5,7 +5,8 @@
 \title{Actualiser explicitement la base locale}
 \usage{
 actualiser(
-  sources = c("deputes", "amo40", "scrutins", "dossiers", "amendements"),
+  sources = c("deputes", "amo40", "amo20", "scrutins", "dossiers", "amendements",
+    "reunions"),
   jours = 1,
   forcer = FALSE,
   reimporter = FALSE,
