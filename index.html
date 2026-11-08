@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="index.html">assembleer</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,6 +36,8 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-guide" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Guide</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-guide">
 <li><a class="dropdown-item" href="articles/a-propos.html">À propos</a></li>
+    <li><a class="dropdown-item" href="articles/fonctionnement-assemblee.html">Comprendre le fonctionnement de l’AN</a></li>
+    <li><a class="dropdown-item" href="articles/comprendre-donnees.html">Comprendre les données de l’AN</a></li>
   </ul>
 </li>
       </ul>
@@ -66,6 +68,29 @@
 <span><span class="fu">assembleer</span><span class="fu">::</span><span class="fu"><a href="reference/chercher_scrutins.html">chercher_scrutins</a></span><span class="op">(</span><span class="st">"finance"</span>, limite <span class="op">=</span> <span class="fl">10</span><span class="op">)</span></span>
 <span><span class="fu">assembleer</span><span class="fu">::</span><span class="fu"><a href="reference/bilan_votes.html">bilan_votes</a></span><span class="op">(</span>par <span class="op">=</span> <span class="st">"groupe"</span><span class="op">)</span></span></code></pre></div>
 <p>Les lectures sont locales : elles ne déclenchent pas de téléchargement.</p>
+</div>
+<div class="section level2">
+<h2 id="sources-officielles">Sources officielles<a class="anchor" aria-label="anchor" href="#sources-officielles"></a>
+</h2>
+<p>Un <a href="https://data.assemblee-nationale.fr/" class="external-link">inventaire initial des sources de l’Assemblée nationale</a> est livré avec le package (<code>inst/extdata/sources_an.csv</code>). Il recense les jeux logiques, leur granularité et les vérifications à mener avant importation. Ce catalogue de travail, distinct des tables DuckDB, n’est pas encore exhaustif et ne remplace pas les ressources officielles.</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">sources</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"sources_an.csv"</span>, package <span class="op">=</span> <span class="st">"assembleer"</span><span class="op">)</span>,</span>
+<span>  sep <span class="op">=</span> <span class="st">";"</span>, fileEncoding <span class="op">=</span> <span class="st">"UTF-8"</span>, check.names <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="documentation-des-correspondances-parlementaires">Documentation des correspondances parlementaires<a class="anchor" aria-label="anchor" href="#documentation-des-correspondances-parlementaires"></a>
+</h2>
+<p>La vignette <a href="vignettes/comprendre-donnees.Rmd">Comprendre les données de l’Assemblée nationale</a> présente les rapprochements exploratoires entre dossiers AN, DOLE (DILA) et dossiers du Sénat, les chiffres de couverture des références et les relations encore à vérifier. Les catalogues <code>sources_an.csv</code>, <code>sources_senat.csv</code> et <code>sources_divers.csv</code> sont des inventaires de sources, pas des tables DuckDB importées.</p>
+</div>
+<div class="section level2">
+<h2 id="dossier-citoyen-pdf">Dossier citoyen PDF<a class="anchor" aria-label="anchor" href="#dossier-citoyen-pdf"></a>
+</h2>
+<p>Le package produit un document pedagogique a partir des relations officielles de la base locale (dossier, textes, reunions et amendements), sans inferer de liens entre les deux chambres par simple ressemblance des titres.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="reference/produire_pedagogique.html">produire_pedagogique</a></span><span class="op">(</span><span class="st">"DLR5L17N52767"</span>, ouvrir <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p>Les references senatoriales presentes dans les dossiers AN sont signalees, mais les corpus DOLE et DOSLEG ne sont pas encore integres.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="license">

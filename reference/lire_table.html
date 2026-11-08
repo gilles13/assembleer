@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">assembleer</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -20,6 +20,8 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-guide" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Guide</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-guide"><li><a class="dropdown-item" href="../articles/a-propos.html">À propos</a></li>
+    <li><a class="dropdown-item" href="../articles/fonctionnement-assemblee.html">Comprendre le fonctionnement de l’AN</a></li>
+    <li><a class="dropdown-item" href="../articles/comprendre-donnees.html">Comprendre les données de l’AN</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"></ul></div>
 
@@ -41,8 +43,9 @@
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">lire_table</span><span class="op">(</span></span>
-<span>  table <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"deputes"</span>, <span class="st">"acteurs"</span>, <span class="st">"organes"</span>, <span class="st">"scrutins"</span>, <span class="st">"votes"</span>,</span>
-<span>    <span class="st">"effectifs_groupes_scrutins"</span>, <span class="st">"dossiers_legislatifs"</span>, <span class="st">"amendements"</span><span class="op">)</span>,</span>
+<span>  table <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"deputes"</span>, <span class="st">"acteurs"</span>, <span class="st">"organes"</span>, <span class="st">"mandats"</span>, <span class="st">"mandats_organes"</span>, <span class="st">"scrutins"</span>,</span>
+<span>    <span class="st">"votes"</span>, <span class="st">"effectifs_groupes_scrutins"</span>, <span class="st">"dossiers_legislatifs"</span>, <span class="st">"amendements"</span>,</span>
+<span>    <span class="st">"reunions"</span>, <span class="st">"reunions_points_odj"</span>, <span class="st">"questions_ecrites"</span><span class="op">)</span>,</span>
 <span>  cache <span class="op">=</span> <span class="fu">tools</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/tools/userdir.html" class="external-link">R_user_dir</a></span><span class="op">(</span><span class="st">"assembleer"</span>, <span class="st">"cache"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
