@@ -1,8 +1,8 @@
 #' Produire la cheatsheet HTML
 #'
-#' G\u00E9n\u00E8re une page HTML autonome sur le mod\u00E8le de la cheatsheet eduschool.
-#' @param fichier Chemin du fichier HTML \u00E0 produire.
-#' @param ouvrir Ouvrir le fichier dans le navigateur apr\u00E8s g\u00E9n\u00E9ration.
+#' Génère une page HTML autonome sur le modèle de la cheatsheet eduschool.
+#' @param fichier Chemin du fichier HTML à produire.
+#' @param ouvrir Ouvrir le fichier dans le navigateur après génération.
 #' @return Chemin du fichier HTML, invisiblement.
 #' @export
 produire_cheatsheet = function(fichier = file.path(tempdir(), "assembleer-cheatsheet.html"),

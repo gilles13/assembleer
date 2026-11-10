@@ -184,7 +184,7 @@ sont pas interchangeables.
 
 ### Débats de l'Assemblée nationale
 
-`importer_debats()` conserve trois niveaux : une ligne par compte rendu
+`actualiser(sources = "debats")` conserve trois niveaux : une ligne par compte rendu
 (`debats_seances.fichier`), des points hiérarchisés (`debats_points`, avec
 `id_syceron`, `parent_id_syceron`, `position`, `titre` et
 `attributs_json`) et des paragraphes (`debats_paragraphes`, avec

@@ -69,9 +69,6 @@ produire_questions = function(questions, titre = "Questions ecrites de l'Assembl
   sortie = file.path(dossier, paste0("assembleer-questions-", format(Sys.Date(), "%Y%m%d"), ".pdf"))
   chemin = .pdf_assembleer(titre, paste0(nrow(questions), " questions ecrites"),
                            paste(sections, collapse = "\n\n"), sortie, modele = modele)
-  if (isTRUE(ouvrir)) {
-    commande = Sys.which("xdg-open")
-    if (nzchar(commande)) system2(commande, shQuote(chemin), wait = FALSE)
-  }
+  .ouvrir_pdf(chemin, ouvrir = ouvrir)
   invisible(chemin)
 }

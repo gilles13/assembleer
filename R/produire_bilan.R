@@ -30,9 +30,6 @@ produire_bilan = function(semaine,
   grDevices::dev.off()
   ouvert = FALSE
   chemin = normalizePath(fichier)
-  if (isTRUE(ouvrir)) {
-    commande = Sys.which("xdg-open")
-    if (nzchar(commande)) system2(commande, chemin, wait = FALSE)
-  }
+  .ouvrir_pdf(chemin, ouvrir = ouvrir)
   invisible(chemin)
 }

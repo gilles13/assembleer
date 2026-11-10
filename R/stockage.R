@@ -23,8 +23,23 @@
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS reunions (uid VARCHAR PRIMARY KEY, debut VARCHAR, fin VARCHAR, session_ref VARCHAR, organe_ref VARCHAR, compte_rendu_ref VARCHAR)")
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS reunions_points_odj (uid VARCHAR, reunion_ref VARCHAR, dossier_ref VARCHAR, objet VARCHAR, type_point VARCHAR, etat VARCHAR, procedure VARCHAR, nature_travaux VARCHAR)")
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS dossiers_legislatifs (uid VARCHAR, titre VARCHAR, texte_ref VARCHAR)")
-  DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS scrutins (uid VARCHAR PRIMARY KEY, numero INTEGER, date DATE, titre VARCHAR, type_vote VARCHAR, sort VARCHAR, votants INTEGER, pour INTEGER, contre INTEGER, abstentions INTEGER)")
-  DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS effectifs_groupes_scrutins (scrutin_uid VARCHAR, groupe_ref VARCHAR, total_groupe INTEGER, PRIMARY KEY(scrutin_uid, groupe_ref))")
+  DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS scrutins (uid VARCHAR PRIMARY KEY, numero INTEGER, date DATE, titre VARCHAR, type_vote VARCHAR, sort VARCHAR, votants INTEGER, pour INTEGER, contre INTEGER, abstentions INTEGER, dossier_uid VARCHAR)")
+  DBI::dbExecute(con, "ALTER TABLE scrutins ADD COLUMN IF NOT EXISTS dossier_uid VARCHAR")
+  DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS effectifs_groupes_scrutins (scrutin_uid VARCHAR, groupe_ref VARCHAR, total_groupe INTEGER, rang INTEGER, PRIMARY KEY(scrutin_uid, rang))")
+  colonnes = DBI::dbGetQuery(con, "DESCRIBE effectifs_groupes_scrutins")$column_name
+  if (!"rang" %in% colonnes) {
+    DBI::dbBegin(con)
+    tryCatch({
+    DBI::dbExecute(con, "CREATE TABLE effectifs_groupes_scrutins_nouveaux (scrutin_uid VARCHAR, groupe_ref VARCHAR, total_groupe INTEGER, rang INTEGER, PRIMARY KEY(scrutin_uid, rang))")
+    DBI::dbExecute(con, "INSERT INTO effectifs_groupes_scrutins_nouveaux SELECT scrutin_uid, groupe_ref, total_groupe, CAST(row_number() OVER (PARTITION BY scrutin_uid ORDER BY groupe_ref) AS INTEGER) FROM effectifs_groupes_scrutins")
+    DBI::dbExecute(con, "DROP TABLE effectifs_groupes_scrutins")
+    DBI::dbExecute(con, "ALTER TABLE effectifs_groupes_scrutins_nouveaux RENAME TO effectifs_groupes_scrutins")
+    DBI::dbCommit(con)
+    }, error = function(e) {
+      DBI::dbRollback(con)
+      stop(e)
+    })
+  }
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS votes (scrutin_uid VARCHAR, acteur_ref VARCHAR, groupe_ref VARCHAR, position VARCHAR, par_delegation BOOLEAN, PRIMARY KEY(scrutin_uid, acteur_ref))")
   con
 }

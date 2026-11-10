@@ -16,3 +16,19 @@
     envir = new.env(parent = globalenv()), quiet = TRUE)
   normalizePath(sortie, mustWork = TRUE)
 }
+
+# Afficher le chemin dans tous les environnements, meme sans application graphique.
+.ouvrir_pdf = function(chemin, ouvrir = TRUE) {
+  chemin = normalizePath(chemin, mustWork = TRUE)
+  message("PDF produit : ", chemin)
+  if (!isTRUE(ouvrir)) return(invisible(chemin))
+  commande = Sys.which("xdg-open")
+  if (!nzchar(commande)) commande = Sys.which("gio")
+  if (nzchar(commande)) {
+    arguments = if (basename(commande) == "gio") c("open", shQuote(chemin)) else shQuote(chemin)
+    invisible(system2(commande, arguments, wait = FALSE))
+  } else {
+    message("Aucune application PDF locale disponible. Recuperer le fichier : ", chemin)
+  }
+  invisible(chemin)
+}

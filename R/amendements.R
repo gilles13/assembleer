@@ -1,45 +1,92 @@
-# Extraction limitee aux champs utiles pour une recherche documentaire.
-# Les chemins absents restent vides : aucun contenu n'est reconstruit.
-.am_texte = function(x) {
-  if (is.null(x)) return(NA_character_)
-  if (is.list(x)) {
-    if (!is.null(x$texte)) return(.am_texte(x$texte))
-    if (!is.null(x$contenu)) return(.am_texte(x$contenu))
-    if (!is.null(x$valeur)) return(.am_texte(x$valeur))
-    return(NA_character_)
-  }
-  if (length(x) != 1L || is.na(x)) return(NA_character_)
-  as.character(x)
-}
-
-# Un champ JSON peut etre absent, null ou une valeur atomique.
-.am_champ = function(x, chemin) {
-  for (nom in chemin) {
-    if (!is.list(x) || is.null(names(x)) || !nom %in% names(x)) return(NULL)
-    x = x[[nom]]
-  }
-  x
-}
-
-.extraire_amendement = function(x) {
-  a = .am_champ(x, "amendement")
-  if (is.null(a)) return(NULL)
-  contenu = .am_champ(a, c("corps", "contenuAuteur"))
-  dispositif = .am_texte(.am_champ(contenu, "dispositif"))
-  expose = .am_texte(.am_champ(contenu, "exposeSommaire"))
-  if (is.na(dispositif)) dispositif = .am_texte(.am_champ(a, c("corps", "dispositif")))
-  if (is.na(expose)) expose = .am_texte(.am_champ(a, c("corps", "exposeSommaire")))
-  uid = .valeur(.am_champ(a, "uid"))
-  if (!nzchar(uid)) stop("Amendement sans UID")
-  ligne = data.frame(
-    uid = uid, numero = .valeur(.am_champ(a, c("identification", "numeroLong"))),
-    legislature = suppressWarnings(as.integer(.valeur(.am_champ(a, "legislature")))),
-    titre = .am_texte(.am_champ(a, c("corps", "cartouche", "designationArticle"))),
-    dispositif = dispositif, expose = expose,
-    sort = .valeur(.am_champ(a, c("cycleDeVie", "sort"))),
-    dossier_ref = .valeur(.am_champ(a, "dossierLegislatifRef")),
-    texte_ref = .valeur(.am_champ(a, "texteLegislatifRef")))
-  list(table = "amendements", ligne = ligne)
+# Importation des amendements depuis l'archive officielle.
+# Transaction geree par actualiser() : une erreur annule toutes les insertions.
+.importer_amendements = function(con, archive, journal) {
+  fichiers_traites = 0L
+  lignes_importees = 0L
+  # Extraction unique ; DuckDB lit ensuite explicitement 500 fichiers par lot.
+  inventaire = zip::zip_list(archive)
+  noms = inventaire$filename[grepl("\\.json$", inventaire$filename, ignore.case = TRUE)]
+  if (!length(noms) || anyDuplicated(noms) ||
+      any(grepl("(^/|(^|/)\\.\\.(/|$))", noms)))
+    stop("Archive d'amendements inattendue.")
+  total = length(noms)
+  taille_lot = 500L
+  nombre_lots = as.integer(ceiling(total / taille_lot))
+  journal("amendements", format(total, big.mark = " "),
+          " JSON ; traitement par ", nombre_lots,
+          " lots de ", taille_lot, " maximum.")
+  dossier = tempfile("assembleer-amendements-")
+  dir.create(dossier)
+  # Lecture vectorisee par DuckDB : pas de parsing JSON dans R.
+  debut = Sys.time()
+  tryCatch({
+    statut = system2("unzip", c("-oq", shQuote(archive), "-d", shQuote(dossier)))
+    if (!identical(as.integer(statut), 0L)) stop("Echec de l'extraction ZIP des amendements.")
+    if (any(!file.exists(file.path(dossier, noms)))) stop("Extraction incomplete des amendements.")
+    journal("amendements", "Extraction terminee en ", round(as.numeric(difftime(Sys.time(), debut, units = "secs")), 1), " s")
+    DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS fichiers_uid (source VARCHAR, chemin VARCHAR, uid VARCHAR, table_cible VARCHAR, PRIMARY KEY(source, chemin))")
+    DBI::dbExecute(con, "DELETE FROM amendements")
+    DBI::dbExecute(con, "DELETE FROM fichiers_uid WHERE source = 'amendements'")
+    DBI::dbExecute(con, "DELETE FROM fichiers WHERE source = 'amendements'")
+    for (j in seq_len(nombre_lots)) {
+      indices = seq.int((j - 1L) * taille_lot + 1L, min(j * taille_lot, total))
+      lot = noms[indices]
+      chemins = file.path(dossier, lot)
+      t1 = Sys.time()
+      motif = paste0("[", paste(as.character(DBI::dbQuoteString(con, chemins)), collapse = ", "), "]")
+      prefixe = DBI::dbQuoteString(con, paste0(normalizePath(dossier), "/"))
+      DBI::dbExecute(con, paste0(
+        "CREATE OR REPLACE TEMP TABLE am_lot AS SELECT ",
+        "replace(filename, ", prefixe, ", '') AS chemin, ",
+        "json_extract(content, '$.amendement') AS a FROM read_text(", motif, ")"))
+      DBI::dbExecute(con, paste0(
+        "CREATE OR REPLACE TEMP TABLE am_lignes AS SELECT chemin, ",
+        "json_extract_string(a, '$.uid') AS uid, ",
+        "json_extract_string(a, '$.identification.numeroLong') AS numero, ",
+        "try_cast(json_extract_string(a, '$.legislature') AS INTEGER) AS legislature, ",
+        "json_extract_string(a, '$.corps.cartouche.designationArticle') AS titre, ",
+        "coalesce(json_extract_string(a, '$.corps.contenuAuteur.dispositif.texte'), ",
+        "json_extract_string(a, '$.corps.contenuAuteur.dispositif.contenu'), ",
+        "json_extract_string(a, '$.corps.contenuAuteur.dispositif.valeur'), ",
+        "json_extract_string(a, '$.corps.contenuAuteur.dispositif'), ",
+        "json_extract_string(a, '$.corps.dispositif.texte'), ",
+        "json_extract_string(a, '$.corps.dispositif')) AS dispositif, ",
+        "coalesce(json_extract_string(a, '$.corps.contenuAuteur.exposeSommaire.texte'), ",
+        "json_extract_string(a, '$.corps.contenuAuteur.exposeSommaire.contenu'), ",
+        "json_extract_string(a, '$.corps.contenuAuteur.exposeSommaire.valeur'), ",
+        "json_extract_string(a, '$.corps.contenuAuteur.exposeSommaire'), ",
+        "json_extract_string(a, '$.corps.exposeSommaire.texte'), ",
+        "json_extract_string(a, '$.corps.exposeSommaire')) AS expose, ",
+        "json_extract_string(a, '$.cycleDeVie.sort') AS sort, ",
+        "json_extract_string(a, '$.dossierLegislatifRef') AS dossier_ref, ",
+        "json_extract_string(a, '$.texteLegislatifRef') AS texte_ref ",
+        "FROM am_lot WHERE a IS NOT NULL"))
+      DBI::dbExecute(con, paste0(
+        "INSERT INTO amendements SELECT uid, numero, legislature, titre, dispositif, expose, ",
+        "sort, dossier_ref, texte_ref FROM am_lignes WHERE uid IS NOT NULL AND uid <> ''"))
+      DBI::dbExecute(con, paste0(
+        "INSERT INTO fichiers_uid SELECT 'amendements', chemin, uid, 'amendements' ",
+        "FROM am_lignes WHERE uid IS NOT NULL AND uid <> ''"))
+      DBI::dbAppendTable(con, "fichiers", data.frame(
+        source = "amendements", chemin = lot,
+        crc = as.character(inventaire$crc32[indices]),
+        taille = as.numeric(inventaire$uncompressed_size[indices])))
+      lignes_importees = lignes_importees + DBI::dbGetQuery(con,
+        "SELECT count(*) AS n FROM am_lignes WHERE uid IS NOT NULL AND uid <> ''")$n[[1L]]
+      fichiers_traites = max(indices)
+      traitement = as.numeric(difftime(Sys.time(), t1, units = "secs"))
+      ecoule = as.numeric(difftime(Sys.time(), debut, units = "secs"))
+      debit = fichiers_traites / max(ecoule, 0.001)
+      restant = (total - fichiers_traites) / debit
+      journal("amendements", sprintf(
+        "%d/%d (%.1f %%) | DuckDB %.1f s | %.1f fichiers/s | reste ~%.1f min",
+        fichiers_traites, total, 100 * fichiers_traites / total,
+        traitement, debit, restant / 60))
+    }
+  }, finally = unlink(dossier, recursive = TRUE))
+  if (lignes_importees != total)
+    stop("Nombre d'amendements importe different du nombre de fichiers JSON.")
+  list(fichiers = fichiers_traites, lignes = lignes_importees)
 }
 
 #' Rechercher dans les amendements de la base locale

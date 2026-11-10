@@ -15,7 +15,7 @@ bilan_hebdomadaire(semaine, cache = tools::R_user_dir("assembleer", "cache"))
 Liste de deux data.frames : dossiers (synthese) et scrutins (detail).
 }
 \description{
-Regroupe les scrutins par dossier legislatif a partir des archives JSON
-deja presentes dans le cache. Aucun acces reseau ni modification de la base.
+Regroupe les scrutins par dossier legislatif depuis DuckDB.
+Aucun acces reseau ni lecture d'archive ZIP.
 Les adoptions/rejets comptent des scrutins, pas des textes de loi.
 }

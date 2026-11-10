@@ -22,7 +22,6 @@ export(bilan_hebdomadaire)
 export(produire_bilan)
 export(produire_cheatsheet)
 
-export(importer_debats)
 export(actualiser_titres_debats)
 
 export(produire_debat)

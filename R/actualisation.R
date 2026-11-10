@@ -1,5 +1,5 @@
 # URL officielles, conservees dans le package.
-.sources_an = function() c(deputes = .url_deputes, amo20 = .archives[["amo20"]], amo40 = .archives[["amo40"]], amendements = .archives[["amendements"]], scrutins = .archives[["scrutins"]], dossiers = .archives[["dossiers"]], reunions = .archives[["reunions"]], senateur = "https://data.senat.fr/data/senateurs/export_sens.zip", questions_ecrites = .archives[["questions_ecrites"]])
+.sources_an = function() c(deputes = .url_deputes, amo20 = .archives[["amo20"]], amo40 = .archives[["amo40"]], amendements = .archives[["amendements"]], scrutins = .archives[["scrutins"]], dossiers = .archives[["dossiers"]], reunions = .archives[["reunions"]], senateur = "https://data.senat.fr/data/senateurs/export_sens.zip", questions_ecrites = .archives[["questions_ecrites"]], debats = "https://data.assemblee-nationale.fr/static/openData/repository/17/VP/syceronbrut/syseron.xml.zip")
 
 # Pour les archives volumineuses, conserver les octets deja recus et afficher
 # la progression. curl -C - reprend au dernier octet si le serveur l'autorise.
@@ -47,6 +47,13 @@
                 md5 = unname(tools::md5sum(chemin)), chemin = chemin,
                 verification = "archive locale", telecharge = FALSE,
                 octets = 0))
+  }
+  if (source == "debats") {
+    archive = file.path(dossier, "syseron.xml.zip")
+    if (file.exists(archive) && (reimporter || !nrow(ancien)))
+      return(list(change = TRUE, etag = "", modified = "",
+                  md5 = unname(tools::md5sum(archive)), chemin = archive,
+                  verification = "archive locale", telecharge = FALSE, octets = 0))
   }
   if (source == "senateur") {
     archive = file.path(dossier, "export_sens.zip")
@@ -166,7 +173,7 @@
   if (httr2::resp_status(reponse) != 304L && source != "deputes") {
     valide = tryCatch({
       contenu = utils::unzip(temporaire, list = TRUE)
-      nrow(contenu) > 0L && any(grepl(if (source == "senateur") "(^|/)export_sens\\.sql$" else "\\.json$", contenu$Name, ignore.case = TRUE))
+      nrow(contenu) > 0L && any(grepl(if (source == "senateur") "(^|/)export_sens\\.sql$" else if (source == "debats") "\\.xml$" else "\\.json$", contenu$Name, ignore.case = TRUE))
     }, error = function(e) FALSE)
     if (!isTRUE(valide)) {
       unlink(temporaire)
@@ -215,7 +222,8 @@
                    votants = suppressWarnings(as.integer(.valeur(s$syntheseVote$nombreVotants))),
                    pour = suppressWarnings(as.integer(.valeur(d$pour))),
                    contre = suppressWarnings(as.integer(.valeur(d$contre))),
-                   abstentions = suppressWarnings(as.integer(.valeur(d$abstentions))))
+                   abstentions = suppressWarnings(as.integer(.valeur(d$abstentions))),
+                   dossier_uid = .valeur(s$objet$dossierLegislatif$dossierRef))
   groupes = .objets(s$ventilationVotes$organe$groupes$groupe)
   positions = c(pour = "pours", contre = "contres", abstention = "abstentions", non_votant = "nonVotants")
   effectifs = lapply(groupes, function(g) {
@@ -225,6 +233,10 @@
     data.frame(scrutin_uid = .valeur(s$uid), groupe_ref = .valeur(g$organeRef),
                total_groupe = n)
   })
+  if (length(effectifs))
+    effectifs = lapply(seq_along(effectifs), function(i) {
+      cbind(effectifs[[i]], rang = as.integer(i))
+    })
   v = lapply(groupes, function(g) {
     nominatifs = g$vote$decompteNominatif
     do.call(rbind, lapply(names(positions), function(p) {
@@ -240,75 +252,15 @@
        effectifs = do.call(rbind, effectifs))
 }
 
-#' Actualiser explicitement la base locale
-#' @param sources Sources a verifier.
-#' @param jours Delai minimal entre deux verifications, en jours.
-#' @param forcer Ignorer le delai de verification.
-#' @param reimporter Reimporter les archives, meme inchangees (migration des effectifs).
-#' @param cache Repertoire local.
-#' @param verbose Afficher les etapes de verification et d'importation.
-#' @return Tableau de suivi : verification, telechargement, changement, fichiers
-#'   traites, lignes importees et volume telecharge (octets).
-#' @export
-actualiser = function(sources = c("deputes", "amo40", "amo20", "scrutins", "dossiers", "amendements", "reunions"), jours = 1,
-                       forcer = FALSE, reimporter = FALSE, cache = tools::R_user_dir("assembleer", "cache"),
-                       verbose = TRUE) {
-  sources = match.arg(sources, names(.sources_an()), several.ok = TRUE)
-  stopifnot(length(jours) == 1L, is.numeric(jours), is.finite(jours), jours >= 0,
-            is.logical(forcer), length(forcer) == 1L, !is.na(forcer))
-  stopifnot(is.logical(verbose), length(verbose) == 1L, !is.na(verbose))
-  journal = function(source, ...) {
-    if (verbose) message(sprintf("[%s] [%s] %s",
-      format(Sys.time(), "%H:%M:%S"), source, paste0(..., collapse = "")))
-  }
-  con = .base_an(cache)
-  on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
-  bilan = vector("list", length(sources))
-  resultat = function(source, statut, verification, telecharge, modifie,
-                      fichiers_traites = 0L, lignes_importees = 0L, octets = 0) {
-    data.frame(source = source, statut = statut, verification = verification,
-               telecharge = telecharge, modifie = modifie,
-               donnees_modifiees = as.integer(fichiers_traites) > 0L,
-               fichiers_traites = as.integer(fichiers_traites),
-               lignes_importees = as.integer(lignes_importees), octets = as.numeric(octets))
-  }
-  for (i in seq_along(sources)) {
-    source = sources[[i]]
-    journal(source, "Debut de la verification")
-    ancien = DBI::dbGetQuery(con, "SELECT * FROM sources WHERE source = ?", params = list(source))
-    if (!forcer && !reimporter && nrow(ancien) && as.numeric(difftime(Sys.time(), ancien$controle[[1L]], units = "days")) < jours) {
-      journal(source, "Verification ignoree (delai non ecoule)")
-      bilan[[i]] = resultat(source, "non_verifie (delai)", "aucune", FALSE, FALSE)
-      next
-    }
-    journal(source, "Controle HTTP / telechargement si necessaire (attente possible)")
-    controle = .verifier_source(source, ancien, cache, reimporter = reimporter)
-    journal(source, "Controle termine : ", controle$verification,
-            "; telecharge = ", controle$telecharge, "; modifie = ", controle$change)
-    fichiers_traites = 0L
-    lignes_importees = 0L
-    if (source == "dossiers" && controle$change && !reimporter) {
-      journal(source, "Comparaison du contenu de l'archive avec le cache")
-      inventaire = zip::zip_list(controle$chemin)
-      noms = unique(inventaire$filename[grepl("^json/dossierParlementaire/[^/]+\\.json$", inventaire$filename)])
-      archive_locale = file.path(cache, "Dossiers_Legislatifs.json.zip")
-      if (file.exists(archive_locale)) {
-        precedent = zip::zip_list(archive_locale)
-        anciens = precedent$filename[grepl("^json/dossierParlementaire/[^/]+\\.json$", precedent$filename)]
-        pos = match(noms, inventaire$filename)
-        idx = match(noms, precedent$filename)
-        if (length(noms) && length(noms) == length(anciens) && !anyNA(idx) &&
-            identical(as.character(inventaire$crc32[pos]), as.character(precedent$crc32[idx])) &&
-            identical(as.numeric(inventaire$uncompressed_size[pos]), as.numeric(precedent$uncompressed_size[idx])))
-          controle$change = FALSE
-      }
-    }
-    if (controle$change) {
-      journal(source, "Debut de l'importation dans DuckDB")
-      DBI::dbBegin(con)
-      ok = FALSE
-      tryCatch({
-        if (source == "senateur") {
+# Importer les donnees d'une source dans la transaction ouverte par actualiser().
+.importer_source = function(con, source, controle, cache, reimporter, verbose, journal) {
+  fichiers_traites = 0L
+  lignes_importees = 0L
+        if (source == "debats") {
+          compte = .importer_debats(con, controle$chemin, remplacer = TRUE)
+          fichiers_traites = compte$fichiers
+          lignes_importees = compte$lignes
+        } else if (source == "senateur") {
           compte = .importer_senateur(con, controle$chemin, journal)
           fichiers_traites = compte$tables
           lignes_importees = compte$lignes
@@ -321,7 +273,10 @@ actualiser = function(sources = c("deputes", "amo40", "amo20", "scrutins", "doss
           dossier = tempfile("assembleer-questions-")
           dir.create(dossier)
           tryCatch({
-            utils::unzip(controle$chemin, files = noms, exdir = dossier)
+            statut = system2("unzip", c("-oq", shQuote(controle$chemin), "-d", shQuote(dossier)))
+            if (!identical(as.integer(statut), 0L)) stop("Echec de l'extraction ZIP des questions.")
+            extraits = list.files(file.path(dossier, "json"), pattern = "\\.json$")
+            if (length(extraits) != length(noms)) stop("Extraction incomplete des questions ecrites.")
             journal(source, "Importation DuckDB en une requete")
             chemin = gsub("'", "''", file.path(dossier, "json", "*.json"), fixed = TRUE)
             DBI::dbExecute(con, "DELETE FROM questions_ecrites")
@@ -432,92 +387,9 @@ actualiser = function(sources = c("deputes", "amo40", "amo20", "scrutins", "doss
             }
           }
         } else if (source == "amendements") {
-
-          # Import en lots : aucune requete SQL avec 144 000 parametres,
-          # aucun split() geant et aucune copie des JSON dans une liste R.
-          inventaire = zip::zip_list(controle$chemin)
-          noms = inventaire$filename[grepl("\\.json$", inventaire$filename, ignore.case = TRUE)]
-          if (!length(noms) || anyDuplicated(noms) ||
-              any(grepl("(^/|(^|/)\\.\\.(/|$))", noms)))
-            stop("Archive d'amendements inattendue.")
-          total = length(noms)
-          taille_lot = 500L
-          nombre_lots = as.integer(ceiling(total / taille_lot))
-          message("Amendements : ", format(total, big.mark = " "),
-                  " JSON ; traitement par ", nombre_lots,
-                  " lots de ", taille_lot, " maximum.")
-          dossier = tempfile("assembleer-amendements-")
-          dir.create(dossier)
-          # Lecture vectorisee par DuckDB : pas de parsing JSON dans R.
-          debut = Sys.time()
-          tryCatch({
-            DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS fichiers_uid (source VARCHAR, chemin VARCHAR, uid VARCHAR, table_cible VARCHAR, PRIMARY KEY(source, chemin))")
-            DBI::dbExecute(con, "DELETE FROM amendements")
-            DBI::dbExecute(con, "DELETE FROM fichiers_uid WHERE source = 'amendements'")
-            DBI::dbExecute(con, "DELETE FROM fichiers WHERE source = 'amendements'")
-            for (j in seq_len(nombre_lots)) {
-              indices = seq.int((j - 1L) * taille_lot + 1L, min(j * taille_lot, total))
-              lot = noms[indices]
-              message(sprintf("Amendements : lot %d/%d, extraction de %d JSON...", j, nombre_lots, length(lot)))
-              t0 = Sys.time()
-              utils::unzip(controle$chemin, files = lot, exdir = dossier)
-              extraction = as.numeric(difftime(Sys.time(), t0, units = "secs"))
-              chemins = file.path(dossier, lot)
-              if (any(!file.exists(chemins))) stop("JSON absent apres extraction.")
-              message(sprintf("Amendements : lot %d/%d extrait en %.1f s ; lecture DuckDB...", j, nombre_lots, extraction))
-              t1 = Sys.time()
-              motif = DBI::dbQuoteString(con, file.path(dossier, "**", "*.json"))
-              prefixe = DBI::dbQuoteString(con, paste0(normalizePath(dossier), "/"))
-              DBI::dbExecute(con, paste0(
-                "CREATE OR REPLACE TEMP TABLE am_lot AS SELECT ",
-                "replace(filename, ", prefixe, ", '') AS chemin, ",
-                "json_extract(content, '$.amendement') AS a FROM read_text(", motif, ")"))
-              DBI::dbExecute(con, paste0(
-                "CREATE OR REPLACE TEMP TABLE am_lignes AS SELECT chemin, ",
-                "json_extract_string(a, '$.uid') AS uid, ",
-                "json_extract_string(a, '$.identification.numeroLong') AS numero, ",
-                "try_cast(json_extract_string(a, '$.legislature') AS INTEGER) AS legislature, ",
-                "json_extract_string(a, '$.corps.cartouche.designationArticle') AS titre, ",
-                "coalesce(json_extract_string(a, '$.corps.contenuAuteur.dispositif.texte'), ",
-                "json_extract_string(a, '$.corps.contenuAuteur.dispositif.contenu'), ",
-                "json_extract_string(a, '$.corps.contenuAuteur.dispositif.valeur'), ",
-                "json_extract_string(a, '$.corps.contenuAuteur.dispositif'), ",
-                "json_extract_string(a, '$.corps.dispositif.texte'), ",
-                "json_extract_string(a, '$.corps.dispositif')) AS dispositif, ",
-                "coalesce(json_extract_string(a, '$.corps.contenuAuteur.exposeSommaire.texte'), ",
-                "json_extract_string(a, '$.corps.contenuAuteur.exposeSommaire.contenu'), ",
-                "json_extract_string(a, '$.corps.contenuAuteur.exposeSommaire.valeur'), ",
-                "json_extract_string(a, '$.corps.contenuAuteur.exposeSommaire'), ",
-                "json_extract_string(a, '$.corps.exposeSommaire.texte'), ",
-                "json_extract_string(a, '$.corps.exposeSommaire')) AS expose, ",
-                "json_extract_string(a, '$.cycleDeVie.sort') AS sort, ",
-                "json_extract_string(a, '$.dossierLegislatifRef') AS dossier_ref, ",
-                "json_extract_string(a, '$.texteLegislatifRef') AS texte_ref ",
-                "FROM am_lot WHERE a IS NOT NULL"))
-              DBI::dbExecute(con, paste0(
-                "INSERT INTO amendements SELECT uid, numero, legislature, titre, dispositif, expose, ",
-                "sort, dossier_ref, texte_ref FROM am_lignes WHERE uid IS NOT NULL AND uid <> ''"))
-              DBI::dbExecute(con, paste0(
-                "INSERT INTO fichiers_uid SELECT 'amendements', chemin, uid, 'amendements' ",
-                "FROM am_lignes WHERE uid IS NOT NULL AND uid <> ''"))
-              DBI::dbAppendTable(con, "fichiers", data.frame(
-                source = "amendements", chemin = lot,
-                crc = as.character(inventaire$crc32[indices]),
-                taille = as.numeric(inventaire$uncompressed_size[indices])))
-              lignes_importees = lignes_importees + DBI::dbGetQuery(con,
-                "SELECT count(*) AS n FROM am_lignes WHERE uid IS NOT NULL AND uid <> ''")$n[[1L]]
-              fichiers_traites = max(indices)
-              unlink(chemins)
-              traitement = as.numeric(difftime(Sys.time(), t1, units = "secs"))
-              ecoule = as.numeric(difftime(Sys.time(), debut, units = "secs"))
-              debit = fichiers_traites / max(ecoule, 0.001)
-              restant = (total - fichiers_traites) / debit
-              message(sprintf(paste0("Amendements : %d/%d (%.1f %%) | extraction %.1f s | ",
-                                     "DuckDB %.1f s | %.1f fichiers/s | reste ~%.1f min"),
-                              fichiers_traites, total, 100 * fichiers_traites / total,
-                              extraction, traitement, debit, restant / 60))
-            }
-          }, finally = unlink(dossier, recursive = TRUE))
+          compte = .importer_amendements(con, controle$chemin, journal)
+          fichiers_traites = compte$fichiers
+          lignes_importees = compte$lignes
         } else if (source == "dossiers") {
           # Les actes sont parcourus sans telecharger les textes eux-memes.
           noms = zip::zip_list(controle$chemin)$filename
@@ -588,7 +460,13 @@ actualiser = function(sources = c("deputes", "amo40", "amo20", "scrutins", "doss
           tryCatch({
             if (length(changements)) {
               journal(source, "Extraction de ", length(changements), " fichiers JSON")
-              utils::unzip(controle$chemin, files = changements, exdir = dossier)
+              if (source == "scrutins") {
+                statut = system2("unzip", c("-oq", shQuote(controle$chemin),
+                                             "-d", shQuote(dossier)))
+                if (statut != 0L) stop("Echec de l'extraction des scrutins")
+              } else {
+                utils::unzip(controle$chemin, files = changements, exdir = dossier)
+              }
             }
             supprimes = setdiff(avant$chemin, noms)
             a_supprimer = unique(c(changements, supprimes))
@@ -608,11 +486,6 @@ actualiser = function(sources = c("deputes", "amo40", "amo20", "scrutins", "doss
                   DBI::dbExecute(con, paste0("DELETE FROM scrutins WHERE uid IN (", paste(rep("?", length(anciens_ids)), collapse = ","), ")"), params = as.list(anciens_ids))
                 }
               }
-              if (source == "amendements") {
-                refs = DBI::dbGetQuery(con, "SELECT chemin, uid FROM fichiers_uid WHERE source = 'amendements'")
-                ids = refs$uid[refs$chemin %in% a_supprimer]
-                if (length(ids)) DBI::dbExecute(con, paste0("DELETE FROM amendements WHERE uid IN (", paste(rep("?", length(ids)), collapse = ","), ")"), params = as.list(ids))
-              }
               if (source == "amo40") {
                 # AMO contient un grand nombre de fiches : on conserve les UID
                 # des fiches non modifiees et on supprime les UID disparus via suivi.
@@ -629,18 +502,14 @@ actualiser = function(sources = c("deputes", "amo40", "amo20", "scrutins", "doss
               lots = split(changements, ceiling(seq_along(changements) / 200))
               for (j in seq_along(lots)) {
                 lot = lots[[j]]
-                if (source == "amendements")
-                  message("Amendements : lot ", j, "/", length(lots),
-                          " (", min(j * 200L, length(changements)), "/",
-                          length(changements), " fichiers)")
                 journal(source, "Parsing et importation du lot ", j, "/", length(lots),
                         " (", length(lot), " JSON)")
                 pars = lapply(lot, function(nom) {
                   x = jsonlite::fromJSON(file.path(dossier, nom), simplifyVector = FALSE)
-                  if (source == "amendements") .extraire_amendement(x) else .extraire_an(x, source)
+                  .extraire_an(x, source)
                 })
                 if (all(vapply(pars, is.null, logical(1)))) stop("Aucun JSON reconnu dans le lot")
-                for (table in c("acteurs", "organes", "scrutins", "votes", "effectifs_groupes_scrutins", "amendements")) {
+                for (table in c("acteurs", "organes", "scrutins", "votes", "effectifs_groupes_scrutins")) {
                   elements = lapply(pars, function(z) if (is.null(z)) NULL else if (table == "votes" && z$table == "scrutins") z$votes else if (table == "effectifs_groupes_scrutins" && z$table == "scrutins") z$effectifs else if (z$table == table) z$ligne else NULL)
                   elements = Filter(function(z) !is.null(z) && nrow(z), elements)
                   if (length(elements)) {
@@ -663,6 +532,80 @@ actualiser = function(sources = c("deputes", "amo40", "amo20", "scrutins", "doss
                           crc = unname(empreintes[noms]), taille = as.numeric(tailles)))
           }, finally = unlink(dossier, recursive = TRUE))
         }
+  list(fichiers = fichiers_traites, lignes = lignes_importees)
+}
+
+#' Actualiser explicitement la base locale
+#' @param sources Sources a verifier.
+#' @param jours Delai minimal entre deux verifications, en jours.
+#' @param forcer Ignorer le delai de verification.
+#' @param reimporter Reimporter les archives, meme inchangees (migration des effectifs).
+#' @param cache Repertoire local.
+#' @param verbose Afficher les etapes de verification et d'importation.
+#' @return Tableau de suivi : verification, telechargement, changement, fichiers
+#'   traites, lignes importees et volume telecharge (octets).
+#' @export
+actualiser = function(sources = c("deputes", "amo40", "amo20", "scrutins", "dossiers", "amendements", "reunions", "debats"), jours = 1,
+                       forcer = FALSE, reimporter = FALSE, cache = tools::R_user_dir("assembleer", "cache"),
+                       verbose = TRUE) {
+  sources = match.arg(sources, names(.sources_an()), several.ok = TRUE)
+  stopifnot(length(jours) == 1L, is.numeric(jours), is.finite(jours), jours >= 0,
+            is.logical(forcer), length(forcer) == 1L, !is.na(forcer))
+  stopifnot(is.logical(verbose), length(verbose) == 1L, !is.na(verbose))
+  journal = function(source, ...) {
+    if (verbose) message(sprintf("[%s] [%s] %s",
+      format(Sys.time(), "%H:%M:%S"), source, paste0(..., collapse = "")))
+  }
+  con = .base_an(cache)
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+  bilan = vector("list", length(sources))
+  resultat = function(source, statut, verification, telecharge, modifie,
+                      fichiers_traites = 0L, lignes_importees = 0L, octets = 0) {
+    data.frame(source = source, statut = statut, verification = verification,
+               telecharge = telecharge, modifie = modifie,
+               donnees_modifiees = as.integer(fichiers_traites) > 0L,
+               fichiers_traites = as.integer(fichiers_traites),
+               lignes_importees = as.integer(lignes_importees), octets = as.numeric(octets))
+  }
+  for (i in seq_along(sources)) {
+    source = sources[[i]]
+    journal(source, "Debut de la verification")
+    ancien = DBI::dbGetQuery(con, "SELECT * FROM sources WHERE source = ?", params = list(source))
+    if (!forcer && !reimporter && nrow(ancien) && as.numeric(difftime(Sys.time(), ancien$controle[[1L]], units = "days")) < jours) {
+      journal(source, "Verification ignoree (delai non ecoule)")
+      bilan[[i]] = resultat(source, "non_verifie (delai)", "aucune", FALSE, FALSE)
+      next
+    }
+    journal(source, "Controle HTTP / telechargement si necessaire (attente possible)")
+    controle = .verifier_source(source, ancien, cache, reimporter = reimporter)
+    journal(source, "Controle termine : ", controle$verification,
+            "; telecharge = ", controle$telecharge, "; modifie = ", controle$change)
+    fichiers_traites = 0L
+    lignes_importees = 0L
+    if (source == "dossiers" && controle$change && !reimporter) {
+      journal(source, "Comparaison du contenu de l'archive avec le cache")
+      inventaire = zip::zip_list(controle$chemin)
+      noms = unique(inventaire$filename[grepl("^json/dossierParlementaire/[^/]+\\.json$", inventaire$filename)])
+      archive_locale = file.path(cache, "Dossiers_Legislatifs.json.zip")
+      if (file.exists(archive_locale)) {
+        precedent = zip::zip_list(archive_locale)
+        anciens = precedent$filename[grepl("^json/dossierParlementaire/[^/]+\\.json$", precedent$filename)]
+        pos = match(noms, inventaire$filename)
+        idx = match(noms, precedent$filename)
+        if (length(noms) && length(noms) == length(anciens) && !anyNA(idx) &&
+            identical(as.character(inventaire$crc32[pos]), as.character(precedent$crc32[idx])) &&
+            identical(as.numeric(inventaire$uncompressed_size[pos]), as.numeric(precedent$uncompressed_size[idx])))
+          controle$change = FALSE
+      }
+    }
+    if (controle$change) {
+      journal(source, "Debut de l'importation dans DuckDB")
+      DBI::dbBegin(con)
+      ok = FALSE
+      tryCatch({
+        compte = .importer_source(con, source, controle, cache, reimporter, verbose, journal)
+        fichiers_traites = compte$fichiers
+        lignes_importees = compte$lignes
         DBI::dbCommit(con)
         journal(source, "Importation terminee : ", fichiers_traites,
                 " fichiers, ", lignes_importees, " lignes")
@@ -676,8 +619,8 @@ actualiser = function(sources = c("deputes", "amo40", "amo20", "scrutins", "doss
     DBI::dbAppendTable(con, "sources", data.frame(source = source, url = unname(.sources_an()[[source]]),
         etag = controle$etag, modified = controle$modified, controle = Sys.time(), md5 = controle$md5))
     if (!is.null(controle$chemin)) {
-      if (source %in% c("dossiers", "amendements", "reunions", "senateur", "questions_ecrites") && controle$change) {
-        destination = file.path(cache, if (source == "dossiers") "Dossiers_Legislatifs.json.zip" else if (source == "reunions") "Agenda.json.zip" else if (source == "senateur") "export_sens.zip" else if (source == "questions_ecrites") "Questions_ecrites.json.zip" else "Amendements.json.zip")
+      if (source %in% c("dossiers", "amendements", "reunions", "senateur", "questions_ecrites", "debats") && controle$change) {
+        destination = file.path(cache, if (source == "debats") "syseron.xml.zip" else if (source == "dossiers") "Dossiers_Legislatifs.json.zip" else if (source == "reunions") "Agenda.json.zip" else if (source == "senateur") "export_sens.zip" else if (source == "questions_ecrites") "Questions_ecrites.json.zip" else "Amendements.json.zip")
         if (!identical(normalizePath(controle$chemin), normalizePath(destination, mustWork = FALSE)) &&
             !file.copy(controle$chemin, destination, overwrite = TRUE))
           warning("Impossible de conserver l'archive dans le cache.")
@@ -689,7 +632,9 @@ actualiser = function(sources = c("deputes", "amo40", "amo20", "scrutins", "doss
           !identical(normalizePath(controle$chemin),
                      normalizePath(file.path(cache, "export_sens.zip"), mustWork = FALSE)) &&
           !identical(normalizePath(controle$chemin),
-                     normalizePath(file.path(cache, "Questions_ecrites.json.zip"), mustWork = FALSE)))
+                     normalizePath(file.path(cache, "Questions_ecrites.json.zip"), mustWork = FALSE)) &&
+          !identical(normalizePath(controle$chemin),
+                     normalizePath(file.path(cache, "syseron.xml.zip"), mustWork = FALSE)))
         unlink(controle$chemin)
     }
     statut = if (!controle$change) "inchange" else if (!fichiers_traites)
@@ -747,21 +692,10 @@ actualiser = function(sources = c("deputes", "amo40", "amo20", "scrutins", "doss
                      groupe_ref = uid, total_groupe = n)
         })
         res = do.call(rbind, res)
-        # PO0 n'identifie aucun groupe exploitable : conserver les autres effectifs.
-        res = res[res$groupe_ref != "PO0", , drop = FALSE]
+        res$rang = seq_len(nrow(res))
         if (!nrow(res)) {
           ignores <<- c(ignores, .valeur(s$uid))
           return(NULL)
-        }
-        cle = paste(res$scrutin_uid, res$groupe_ref, sep = "/")
-        doublons = duplicated(cle) | duplicated(cle, fromLast = TRUE)
-        if (any(doublons)) {
-          conflits = split(res$total_groupe[doublons], cle[doublons])
-          if (any(vapply(conflits, \(z) length(unique(z)) > 1L, logical(1)))) {
-            ignores <<- c(ignores, .valeur(s$uid))
-            return(NULL)
-          }
-          res = res[!duplicated(cle), , drop = FALSE]
         }
         res
       })
@@ -779,7 +713,7 @@ actualiser = function(sources = c("deputes", "amo40", "amo20", "scrutins", "doss
     stop(e)
   })
   if (length(ignores))
-    warning(length(ignores), " scrutins sans effectifs exploitables (PO0 seul ou effectifs contradictoires). Exemples : ",
+    warning(length(ignores), " scrutins sans effectifs exploitables. Exemples : ",
             paste(utils::head(unique(ignores), 5L), collapse = ", "), call. = FALSE)
   invisible(total)
 }

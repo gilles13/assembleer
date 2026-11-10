@@ -29,30 +29,12 @@
   if (nzchar(titre)) titre else NA_character_
 }
 
-#' Importer les comptes rendus des debats dans DuckDB
-#'
-#' Lit une archive XML locale directement, un compte rendu a la fois.
-#' Conserve une copie XML sans namespaces ainsi que les attributs complets
-#' des points et paragraphes. Les fichiers deja importes sont ignores.
-#' @param fichier Chemin de l'archive ZIP des comptes rendus.
-#' @param cache Repertoire de la base DuckDB assembleer.
-#' @param limite Nombre maximal de nouveaux fichiers a traiter (Inf : tous).
-#' @param remplacer Reimporter aussi les fichiers deja presents.
-#' @return Tableau de suivi des fichiers traites, invisible.
-#' @export
-importer_debats = function(fichier = "/tmp/assembleer-debats.xml.zip",
-                           cache = tools::R_user_dir("assembleer", "cache"),
-                           limite = Inf, remplacer = FALSE) {
-  if (!file.exists(fichier)) stop("Archive introuvable : ", fichier, call. = FALSE)
-  if (length(limite) != 1L || is.na(limite) || limite < 0)
-    stop("limite doit etre positive.", call. = FALSE)
-
+# Importer les debats dans la connexion et la transaction d'actualiser().
+.importer_debats = function(con, fichier, remplacer = FALSE) {
   membres = utils::unzip(fichier, list = TRUE)
   noms = membres$Name[grepl("\\.xml$", membres$Name, ignore.case = TRUE)]
   if (!length(noms)) stop("Aucun fichier XML dans l'archive.", call. = FALSE)
 
-  con = .base_an(cache)
-  on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS debats_seances (fichier VARCHAR PRIMARY KEY, uid VARCHAR, seance_ref VARCHAR, session_ref VARCHAR, metadonnees_json VARCHAR, xml_sans_namespace VARCHAR)")
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS debats_points (fichier VARCHAR, position INTEGER, id_syceron VARCHAR, parent_id_syceron VARCHAR, attributs_json VARCHAR, titre VARCHAR, PRIMARY KEY(fichier, position))")
   DBI::dbExecute(con, "ALTER TABLE debats_points ADD COLUMN IF NOT EXISTS titre VARCHAR")
@@ -60,8 +42,7 @@ importer_debats = function(fichier = "/tmp/assembleer-debats.xml.zip",
 
   deja = DBI::dbGetQuery(con, "SELECT fichier FROM debats_seances")$fichier
   if (!remplacer) noms = noms[!noms %in% deja]
-  noms = utils::head(noms, if (is.infinite(limite)) length(noms) else as.integer(limite))
-  suivi = vector("list", length(noms))
+  lignes = 0L
 
   for (i in seq_along(noms)) {
     nom = noms[[i]]
@@ -113,22 +94,19 @@ importer_debats = function(fichier = "/tmp/assembleer-debats.xml.zip",
         texte_xml = if (length(texte)) as.character(texte[[1L]]) else NA_character_)
     })) else NULL
 
-    DBI::dbWithTransaction(con, {
-      if (remplacer) {
-        DBI::dbExecute(con, "DELETE FROM debats_paragraphes WHERE fichier = ?", params = list(nom))
-        DBI::dbExecute(con, "DELETE FROM debats_points WHERE fichier = ?", params = list(nom))
-        DBI::dbExecute(con, "DELETE FROM debats_seances WHERE fichier = ?", params = list(nom))
-      }
-      DBI::dbAppendTable(con, "debats_seances", seance)
-      if (!is.null(tab_points)) DBI::dbAppendTable(con, "debats_points", tab_points)
-      if (!is.null(tab_paragraphes)) DBI::dbAppendTable(con, "debats_paragraphes", tab_paragraphes)
-    })
-    suivi[[i]] = data.frame(fichier = nom, points = length(points), paragraphes = length(paragraphes))
+    if (remplacer) {
+      DBI::dbExecute(con, "DELETE FROM debats_paragraphes WHERE fichier = ?", params = list(nom))
+      DBI::dbExecute(con, "DELETE FROM debats_points WHERE fichier = ?", params = list(nom))
+      DBI::dbExecute(con, "DELETE FROM debats_seances WHERE fichier = ?", params = list(nom))
+    }
+    DBI::dbAppendTable(con, "debats_seances", seance)
+    if (!is.null(tab_points)) DBI::dbAppendTable(con, "debats_points", tab_points)
+    if (!is.null(tab_paragraphes)) DBI::dbAppendTable(con, "debats_paragraphes", tab_paragraphes)
+    lignes = lignes + 1L + length(points) + length(paragraphes)
     if (i %% 10L == 0L || i == length(noms)) message("Debats : ", i, "/", length(noms), " fichiers importes")
     rm(doc, points, paragraphes, tab_points, tab_paragraphes, seance)
   }
-  invisible(if (length(suivi)) do.call(rbind, suivi) else
-    data.frame(fichier = character(), points = integer(), paragraphes = integer()))
+  list(fichiers = length(noms), lignes = lignes)
 }
 
 #' Completer les titres des points deja importes

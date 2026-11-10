@@ -21,6 +21,8 @@ sujet_politique = function(texte, limite = 100L,
   limite = as.integer(limite)
   con = .connexion_lecture(cache)
   on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+  if (!DBI::dbExistsTable(con, "debats_points"))
+    stop('Debats non importes : executer actualiser(sources = "debats").', call. = FALSE)
   chercher = function(sql) DBI::dbGetQuery(con, paste0(sql, " LIMIT ", limite),
                                           params = list(texte))
   list(
