@@ -676,11 +676,12 @@ ministère (<code>MINISTERE</code>) ne sont pas interchangeables.</p>
 <div class="section level3">
 <h3 id="débats-de-lassemblée-nationale">Débats de l’Assemblée nationale<a class="anchor" aria-label="anchor" href="#d%C3%A9bats-de-lassembl%C3%A9e-nationale"></a>
 </h3>
-<p><code><a href="../reference/importer_debats.html">importer_debats()</a></code> conserve trois niveaux : une ligne par
-compte rendu (<code>debats_seances.fichier</code>), des points
-hiérarchisés (<code>debats_points</code>, avec <code>id_syceron</code>,
-<code>parent_id_syceron</code>, <code>position</code>,
-<code>titre</code> et <code>attributs_json</code>) et des paragraphes
+<p><code>actualiser(sources = "debats")</code> conserve trois niveaux :
+une ligne par compte rendu (<code>debats_seances.fichier</code>), des
+points hiérarchisés (<code>debats_points</code>, avec
+<code>id_syceron</code>, <code>parent_id_syceron</code>,
+<code>position</code>, <code>titre</code> et
+<code>attributs_json</code>) et des paragraphes
 (<code>debats_paragraphes</code>, avec <code>point_id_syceron</code>,
 <code>id_acteur</code>, <code>orateurs_xml</code> et
 <code>texte</code>). La clé de rattachement des points et paragraphes

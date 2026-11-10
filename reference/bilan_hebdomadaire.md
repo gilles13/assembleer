@@ -1,8 +1,8 @@
 # Bilan hebdomadaire des scrutins publics
 
-Regroupe les scrutins par dossier legislatif a partir des archives JSON
-deja presentes dans le cache. Aucun acces reseau ni modification de la
-base. Les adoptions/rejets comptent des scrutins, pas des textes de loi.
+Regroupe les scrutins par dossier legislatif depuis DuckDB. Aucun acces
+reseau ni lecture d'archive ZIP. Les adoptions/rejets comptent des
+scrutins, pas des textes de loi.
 
 ## Usage
 

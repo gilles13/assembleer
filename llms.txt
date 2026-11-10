@@ -98,8 +98,6 @@ signalees, mais les corpus DOLE et DOSLEG ne sont pas encore integres.
   : Fiche PDF d'une motion de censure
 - [`groupes()`](https://gilles13.github.io/assembleer/reference/groupes.md)
   : Groupes politiques
-- [`importer_debats()`](https://gilles13.github.io/assembleer/reference/importer_debats.md)
-  : Importer les comptes rendus des debats dans DuckDB
 - [`importer_dole()`](https://gilles13.github.io/assembleer/reference/importer_dole.md)
   : Importer le corpus complet DOLE de la DILA
 - [`importer_dosleg()`](https://gilles13.github.io/assembleer/reference/importer_dosleg.md)

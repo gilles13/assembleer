@@ -244,13 +244,12 @@ une prise de parole à une séance donnée. Les rattachements à un groupe
 
 ### Débats de l’Assemblée nationale
 
-[`importer_debats()`](https://gilles13.github.io/assembleer/reference/importer_debats.md)
-conserve trois niveaux : une ligne par compte rendu
-(`debats_seances.fichier`), des points hiérarchisés (`debats_points`,
-avec `id_syceron`, `parent_id_syceron`, `position`, `titre` et
-`attributs_json`) et des paragraphes (`debats_paragraphes`, avec
-`point_id_syceron`, `id_acteur`, `orateurs_xml` et `texte`). La clé de
-rattachement des points et paragraphes **inclut `fichier`** : une
+`actualiser(sources = "debats")` conserve trois niveaux : une ligne par
+compte rendu (`debats_seances.fichier`), des points hiérarchisés
+(`debats_points`, avec `id_syceron`, `parent_id_syceron`, `position`,
+`titre` et `attributs_json`) et des paragraphes (`debats_paragraphes`,
+avec `point_id_syceron`, `id_acteur`, `orateurs_xml` et `texte`). La clé
+de rattachement des points et paragraphes **inclut `fichier`** : une
 référence Syceron isolée ne doit pas remplacer ce contexte sans
 contrôle.
 
